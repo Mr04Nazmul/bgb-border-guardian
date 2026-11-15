@@ -238,7 +238,7 @@ func show_menu() -> void:
 	menu_box.add_child(sub)
 	item(tr2("খেলা শুরু","Start Game"),func(): start_mission(0))
 	item(tr2("চালিয়ে যান","Continue"),func():
-		if FileAccess.file_exists("user://save.json"):
+		if FileAccess.file_exists("user://save.json") or OS.has_feature("web"):
 			load_game(true)
 		else:
 			start_mission(0))
@@ -426,15 +426,27 @@ func draw_minimap() -> void:
 		minimap.draw_circle(Vector2(goals[step].x,goals[step].z)/2+Vector2(100,100),5,Color("edcc6b"))
 func save_game() -> void:
 	var data := {"version":1,"unlocked":unlocked,"rewards":rewards,"mission":mission,"step":step,"elapsed":elapsed,"talked":talked,"jumped":jumped,"position":[player.position.x,player.position.y,player.position.z],"health":player.health,"stamina":player.stamina,"language":language,"quality":quality,"outfit":outfit}
+	if OS.has_feature("web"):
+		var encoded := Marshalls.utf8_to_base64(JSON.stringify(data))
+		JavaScriptBridge.eval("try { localStorage.setItem('bgb-save-v1','"+encoded+"'); } catch(e) {}", true)
 	var file := FileAccess.open("user://save.tmp",FileAccess.WRITE)
 	if file:
 		file.store_string(JSON.stringify(data))
 		file.close()
 		DirAccess.rename_absolute("user://save.tmp","user://save.json")
 func load_game(continue_game: bool) -> void:
-	if not FileAccess.file_exists("user://save.json"):
+	var saved := ""
+	if OS.has_feature("web"):
+		var encoded = JavaScriptBridge.eval("(function(){try{return localStorage.getItem('bgb-save-v1')||'';}catch(e){return '';}})()", true)
+		if encoded is String and not encoded.is_empty():
+			saved = Marshalls.base64_to_utf8(encoded)
+	if saved.is_empty() and FileAccess.file_exists("user://save.json"):
+		saved = FileAccess.get_file_as_string("user://save.json")
+	if saved.is_empty():
+		if continue_game:
+			start_mission(0)
 		return
-	var data = JSON.parse_string(FileAccess.get_file_as_string("user://save.json"))
+	var data = JSON.parse_string(saved)
 	if not data is Dictionary or data.get("version")!=1:
 		return
 	unlocked = clampi(int(data.get("unlocked",0)),0,3)

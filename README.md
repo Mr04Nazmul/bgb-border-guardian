@@ -35,7 +35,9 @@ python3 scripts/package_web.py
 
 GitHub Actions runs tests and produces debug APK and Web artifacts. There is no production publication or release signing in CI. Generated debug keystores are disposable: rebuilding on a fresh runner may require uninstalling a previously installed debug build. Release keystore/AAB pipeline must be added later with owner-managed secrets; never reuse the debug key for Play.
 
-The Web build is the same 3D Godot game, exported single-threaded for Safari compatibility. WebGL2 is required. Engine is split into two static-host-sized binary chunks; packaging verifies exact SHA-256 reassembly. First load is approximately 40 MB; browser cache is not a guarantee of offline availability. Android is the offline-first target.
+The Web build is the same 3D Godot game, exported single-threaded for Safari compatibility. WebGL2 is required. The engine downloads as approximately 10 MB gzip, with measured download progress, explicit Play, a startup timeout and visible error/retry handling. Packaging verifies exact decompression and SHA-256 integrity. Web saves use localStorage instead of IndexedDB to avoid an initialization dependency in Safari. Browser cache is not a guarantee of offline availability. Android is the offline-first target.
+
+Loader regression tests: `node tests/web_loader.cjs` after Web packaging verifies gzip download/progress/decompression, HTTP and module rejection propagation, engine integrity and WebAssembly compilation. Actual iPhone rendering remains unverified. The previous loading screen could show 100% for the small PCK while the engine download was incomplete and could leave startup rejections hidden. These loader defects are corrected in playtest 0.1.1; the exact on-device stall is not yet independently reproduced.
 
 ## Unfinished / not verified
 
