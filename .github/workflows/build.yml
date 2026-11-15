@@ -65,6 +65,8 @@ jobs:
           grep 'TERRAIN PASS' build/terrain.log
           timeout 60 godot --headless --script tests/combat_check.gd 2>&1 | tee build/combat.log
           grep 'COMBAT PASS' build/combat.log
+          timeout 60 godot --headless --script tests/rafi_check.gd 2>&1 | tee build/rafi.log
+          grep 'RAFI PASS' build/rafi.log
       - name: Build Android APK and verify signature
         shell: bash
         run: |

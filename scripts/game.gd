@@ -282,10 +282,7 @@ func settings_menu() -> void:
 			apply_quality()
 			save_game()
 			settings_menu())
-	item(tr2("পোশাকের রং পরিবর্তন","Change uniform color"),func():
-		outfit = (outfit+1)%3
-		player.visual.get_child(0).material_override.albedo_color = [Color("50613c"),Color("6d6249"),Color("3f5964")][outfit]
-		save_game())
+	item(tr2("মূল চরিত্র: Rafi","Main character: Rafi"),func(): pass).disabled = true
 	item(tr2("বৃষ্টি চালু / বন্ধ","Toggle rain atmosphere"),func(): rain = not rain)
 	item(tr2("ফিরে যান","Back"),show_menu)
 func apply_quality() -> void:
@@ -481,7 +478,6 @@ func load_game(continue_game: bool) -> void:
 	quality = 1 if int(data.get("visual_revision",0)) < 2 else clampi(int(data.get("quality",1)),0,2)
 	outfit = clampi(int(data.get("outfit",0)),0,2)
 	apply_quality()
-	player.visual.get_child(0).material_override.albedo_color = [Color("50613c"),Color("6d6249"),Color("3f5964")][outfit]
 	if continue_game:
 		mission = clampi(int(data.get("mission",0)),0,unlocked)
 		goals.assign(routes[mission])

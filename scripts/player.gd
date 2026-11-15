@@ -15,7 +15,10 @@ var visual: Node3D
 var pivot: Node3D
 var arm: SpringArm3D
 var camera: Camera3D
-var legs: Array[Node3D] = []
+var avatar: Node3D
+var front_card: Node3D
+var back_card: Node3D
+var side_card: Node3D
 
 func _ready() -> void:
 	var shape := CollisionShape3D.new()
@@ -27,19 +30,14 @@ func _ready() -> void:
 	add_child(shape)
 	visual = Node3D.new()
 	add_child(visual)
-	part(Vector3(0,1.2,0), Vector3(0.65,0.7,0.34), Color("50613c"), visual)
-	part(Vector3(0,1.78,0), Vector3(0.34,0.36,0.32), Color("b78260"), visual)
-	part(Vector3(0,1.98,0), Vector3(0.4,0.15,0.4), Color("36452b"), visual)
-	part(Vector3(0,1.2,0.22), Vector3(0.48,0.5,0.18), Color("29382b"), visual)
-	for x in [-0.2,0.2]:
-		var leg := Node3D.new()
-		leg.position = Vector3(x,0.85,0)
-		visual.add_child(leg)
-		part(Vector3(0,-0.35,0),Vector3(0.22,0.7,0.23),Color("43513a"),leg)
-		part(Vector3(0,-0.73,-0.06),Vector3(0.25,0.16,0.4),Color("20271f"),leg)
-		legs.append(leg)
-	for x in [-0.45,0.45]:
-		part(Vector3(x,1.15,0),Vector3(0.2,0.65,0.22),Color("50613c"),visual)
+	avatar = preload("res://assets/characters/rafi/bgb-rafi-v3.glb").instantiate()
+	avatar.name = "RafiMainCharacter"
+	# Uploaded GLB uses Z as its height axis; convert to Godot's Y-up world.
+	avatar.rotation.x = -PI/2
+	visual.add_child(avatar)
+	front_card = avatar.find_child("RafiFront",true,false)
+	back_card = avatar.find_child("RafiBack",true,false)
+	side_card = avatar.find_child("RafiSide",true,false)
 	weapon=Node3D.new()
 	visual.add_child(weapon)
 	part(Vector3(0.23,1.2,-0.38),Vector3(0.13,0.14,0.8),Color("30352e"),weapon)
@@ -69,7 +67,7 @@ func part(pos: Vector3, size: Vector3, color: Color, parent: Node3D) -> void:
 	parent.add_child(m)
 
 func _physics_process(dt: float) -> void:
-	weapon.visible = is_instance_valid(get_parent().combat) and get_parent().combat.active
+	weapon.visible = false
 	if get_parent().paused or not get_parent().playing:
 		return
 	if is_instance_valid(get_parent().combat) and get_parent().combat.active and get_parent().combat.respawn_left>0:
@@ -101,8 +99,15 @@ func _physics_process(dt: float) -> void:
 	if dir.length() > 0.1:
 		visual.rotation.y = lerp_angle(visual.rotation.y,atan2(-dir.x,-dir.z),dt*12)
 		phase += dt*speed*2
-		legs[0].rotation.x = sin(phase)*0.6
-		legs[1].rotation.x = -sin(phase)*0.6
+		avatar.position.y = absf(sin(phase))*0.025
 	else:
-		for leg in legs:
-			leg.rotation.x = lerpf(leg.rotation.x,0,dt*10)
+		avatar.position.y = lerpf(avatar.position.y,0,dt*10)
+	update_avatar_view()
+
+func update_avatar_view() -> void:
+	if not is_instance_valid(camera):return
+	var direction := visual.to_local(camera.global_position)
+	var side := absf(direction.x)>absf(direction.z)
+	front_card.visible = not side and direction.z<0
+	back_card.visible = not side and direction.z>=0
+	side_card.visible = side

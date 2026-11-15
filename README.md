@@ -64,3 +64,9 @@ Choose **Team Match • Offline Bots**. First side to 30 eliminations wins; a fi
 Includes team minimap dots, team labels, elimination scoring, tracers and an original synthesized gunshot sound. No blood/gore. Civilian animation, soldiers and weapons are still simple prototype meshes; no online multiplayer, battle-royale circle, loot/inventory, weapon selection or PUBG/Free Fire parity is claimed. Bot-match FPS and actual mobile rendering remain unverified.
 
 Regression test: `godot --headless --script tests/combat_check.gd` verifies population, hit damage, wall occlusion, fire rate, reload, scoring, civilian protection, respawn, pause, victory and repeated-match cleanup. The synthesized shot.wav is original MIT-licensed audio under the project LICENSE.
+
+## Main character Rafi — 0.3.1
+
+The player now uses the exact user-supplied bgb-rafi-v3.glb from bgb-rafi-v3-pack.zip. The original GLB bytes are preserved, with provenance/SHA-256 recorded under assets/characters/rafi. Corrects its Z-up coordinate convention at runtime to stand 1.9 metres high. Camera-relative front/back/side selection avoids rendering all crossed picture planes at once. The supplied appearance is preserved; uniform recoloring and the old block weapon overlay are disabled for this avatar. Existing movement, collision, first/third-person camera, crouch scaling, vehicle and combat logic remain.
+
+This asset is a **2.5D picture-card character**, not a solid rigged 3D model. It has no skeleton or animation clips. Movement only adds slight procedural body bob; it does not provide limb walking, running, aiming or reload animation. All other soldiers/NPCs retain their previous models. `tests/rafi_check.gd` validates the imported asset, upright scale, directional selection, landing, camera visibility and settings/save compatibility. Actual iPhone rendering remains unverified.

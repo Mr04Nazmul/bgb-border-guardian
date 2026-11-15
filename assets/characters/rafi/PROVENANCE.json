@@ -1,0 +1,7 @@
+{
+  "source": "User-uploaded bgb-rafi-v3-pack.zip",
+  "uploaded_model_sha256": "92f2082f80bd47822a0d1a683c065edf6c5c4707e76f16f062cf947e1e79fe24",
+  "modifications_to_glb": "None. Runtime rotates Z-up to Y-up and selects one supplied view at a time.",
+  "format": "Three image planes; no skeleton or animation clips",
+  "license": "User-supplied for this project; no independent standalone asset license asserted"
+}
