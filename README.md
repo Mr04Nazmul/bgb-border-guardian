@@ -48,3 +48,9 @@ No claim of 30/60 FPS or universal device support is made. Cloud browser reporte
 ## Licensing
 
 Original source and procedural geometry are MIT-licensed (LICENSE). Noto Sans Bengali is bundled under SIL Open Font License; see assets/FONT-LICENSE.txt. Godot's export runtime includes its own open-source notices. No official insignia or third-party character models are used.
+
+## Sylhet environment update — 0.2.0
+
+Replaces the flat green ground with an original 20,000-triangle 400 m terrain, including tea hills and a lowered river channel. Adds 660 contour-row tea bushes, batched meadow grass and leaf-card trees, distant hill silhouettes, animated water, scanned CC0 PBR ground/grass/brick/tin materials, house verandas/posts/steps, rural utility poles/cables, procedural sky and warm directional lighting. Vegetation is spatially batched in 32 m cells for distance culling. Medium quality enables directional shadows; Low disables them. An initial visual-settings migration selects Medium once; subsequent saved choices are preserved.
+
+This is a substantial environment art pass, **not GTA-level photorealism**. Soldier/NPC/jeep geometry remains prototype quality, terrain is fictional rather than a real-world survey, and actual device FPS and iPhone rendering remain unverified. Texture sources and licenses are in assets/textures/SOURCES.json and LICENSES.md. `tests/terrain_check.gd` checks the terrain collision orientation, player landing and tea-instance count; the original smoke/physics and web-loader tests remain required.

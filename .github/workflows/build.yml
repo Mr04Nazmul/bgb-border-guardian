@@ -61,6 +61,8 @@ jobs:
           grep 'SMOKE PASS' build/smoke.log
           XDG_DATA_HOME=/tmp/bgb-physics timeout 60 godot --headless -- --physics-test 2>&1 | tee build/physics.log
           grep 'PHYSICS PASS' build/physics.log
+          timeout 60 godot --headless --script tests/terrain_check.gd 2>&1 | tee build/terrain.log
+          grep 'TERRAIN PASS' build/terrain.log
       - name: Build Android APK and verify signature
         shell: bash
         run: |

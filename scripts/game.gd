@@ -1,6 +1,8 @@
 extends Node3D
 const Player = preload("res://scripts/player.gd")
 const Jeep = preload("res://scripts/jeep.gd")
+const Sylhet = preload("res://scripts/sylhet.gd")
+var landscape: Node3D
 const Touch = preload("res://scripts/touch.gd")
 var player: CharacterBody3D
 var jeep: CharacterBody3D
@@ -21,9 +23,9 @@ var step := 0
 var unlocked := 0
 var rewards := 0
 var elapsed := 0.0
-var clock := 10.0
+var clock := 8.2
 var language := "bn"
-var quality := 0
+var quality := 1
 var outfit := 0
 var playing := false
 var paused := false
@@ -87,9 +89,12 @@ func make_world() -> void:
 	sun.light_color = Color("ffe5bb")
 	sun.light_energy = 1.2
 	add_child(sun)
-	box(Vector3(0,-0.6,0),Vector3(400,1,400),Color("658149"))
-	box(Vector3(0,-0.04,-20),Vector3(9,0.12,350),Color("9e8d6b"),false)
-	box(Vector3(86,0.01,0),Vector3(18,0.15,400),Color("4b8e9a"),false)
+	landscape = Sylhet.new()
+	add_child(landscape)
+	landscape.build(self)
+	var road := box(Vector3(0,-0.04,-20),Vector3(9,0.12,350),Color.WHITE,false)
+	road.material_override = landscape.dirt_mat
+
 	box(Vector3(86,0.4,-90),Vector3(30,0.6,7),Color("8e836b"))
 	for x in [73,99]:
 		box(Vector3(x,1,-90),Vector3(0.3,1.2,7),Color("716854"))
@@ -114,6 +119,7 @@ func make_world() -> void:
 		if absf(pos.x)<45 or (pos.x>70 and pos.x<102) or (pos.x<0 and pos.z< -50 and pos.x> -100):
 			continue
 		tree_at(pos,rng.randf_range(0.8,1.5))
+	landscape.finish_trees()
 	player = Player.new()
 	player.position = Vector3(0,1,8)
 	add_child(player)
@@ -132,29 +138,26 @@ func make_world() -> void:
 	apply_quality()
 func house(pos: Vector3,size: Vector3,color: Color) -> void:
 	box(pos+Vector3(0,0.3,0),Vector3(size.x+1,0.6,size.z+1),Color("77766a"))
-	box(pos+Vector3(0,size.y/2+0.6,0),size,color)
+	var wall := box(pos+Vector3(0,size.y/2+0.6,0),size,color)
+	wall.material_override = landscape.brick_mat
+	# Shaded veranda, timber posts, window shutters and entrance steps.
+	box(pos+Vector3(0,0.35,size.z/2+1.2),Vector3(size.x+0.6,0.5,2.4),Color("918c7c"))
+	var awning := box(pos+Vector3(0,size.y+0.35,size.z/2+1.1),Vector3(size.x+1,0.12,3),Color.WHITE)
+	awning.material_override = landscape.roof_mat
+	awning.rotation.x = 0.14
+	for x in [-size.x/2,size.x/2]:
+		box(pos+Vector3(x,size.y/2+0.5,size.z/2+2.1),Vector3(0.13,size.y,0.13),Color("635442"))
+	for i in 3:
+		box(pos+Vector3(0,0.12+float(i)*0.08,size.z/2+2.4-float(i)*0.25),Vector3(2,0.16,0.7),Color("898272"))
 	for sign_x in [-1,1]:
 		var roof := box(pos+Vector3(sign_x*size.x*0.25,size.y+1,0),Vector3(size.x*0.57,0.18,size.z+1.5),Color("57676b"))
-		roof.rotation.z = sign_x*0.32
+		roof.material_override = landscape.roof_mat
+		roof.rotation.z = -sign_x*0.32
 	box(pos+Vector3(0,1.5,size.z/2+0.03),Vector3(1.5,2.3,0.1),Color("493b2c"),false)
 	for x in [-size.x*0.3,size.x*0.3]:
 		box(pos+Vector3(x,2,size.z/2+0.05),Vector3(1.4,1.1,0.1),Color("364b4d"),false)
 func tree_at(pos: Vector3,s: float) -> void:
-	box(pos+Vector3(0,2*s,0),Vector3(0.5,4*s,0.5),Color("66513a"))
-	var crown := MeshInstance3D.new()
-	var sphere := SphereMesh.new()
-	sphere.radius = 2.8*s
-	sphere.height = 5*s
-	sphere.radial_segments = 8
-	sphere.rings = 4
-	crown.mesh = sphere
-	crown.position = pos+Vector3(0,5*s,0)
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color("3f6944")
-	crown.material_override = mat
-	crown.visibility_range_end = 110
-	crown.visibility_range_end_margin = 15
-	add_child(crown)
+	landscape.make_tree(pos,s)
 func make_ui() -> void:
 	hud = CanvasLayer.new()
 	add_child(hud)
@@ -425,7 +428,7 @@ func draw_minimap() -> void:
 	if not goals.is_empty():
 		minimap.draw_circle(Vector2(goals[step].x,goals[step].z)/2+Vector2(100,100),5,Color("edcc6b"))
 func save_game() -> void:
-	var data := {"version":1,"unlocked":unlocked,"rewards":rewards,"mission":mission,"step":step,"elapsed":elapsed,"talked":talked,"jumped":jumped,"position":[player.position.x,player.position.y,player.position.z],"health":player.health,"stamina":player.stamina,"language":language,"quality":quality,"outfit":outfit}
+	var data := {"version":1,"visual_revision":2,"unlocked":unlocked,"rewards":rewards,"mission":mission,"step":step,"elapsed":elapsed,"talked":talked,"jumped":jumped,"position":[player.position.x,player.position.y,player.position.z],"health":player.health,"stamina":player.stamina,"language":language,"quality":quality,"outfit":outfit}
 	if OS.has_feature("web"):
 		var encoded := Marshalls.utf8_to_base64(JSON.stringify(data))
 		JavaScriptBridge.eval("try { localStorage.setItem('bgb-save-v1','"+encoded+"'); } catch(e) {}", true)
@@ -452,7 +455,7 @@ func load_game(continue_game: bool) -> void:
 	unlocked = clampi(int(data.get("unlocked",0)),0,3)
 	rewards = maxi(0,int(data.get("rewards",0)))
 	language = "en" if data.get("language")=="en" else "bn"
-	quality = clampi(int(data.get("quality",0)),0,2)
+	quality = 1 if int(data.get("visual_revision",0)) < 2 else clampi(int(data.get("quality",1)),0,2)
 	outfit = clampi(int(data.get("outfit",0)),0,2)
 	apply_quality()
 	player.visual.get_child(0).material_override.albedo_color = [Color("50613c"),Color("6d6249"),Color("3f5964")][outfit]

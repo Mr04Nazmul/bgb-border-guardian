@@ -1,0 +1,110 @@
+[
+  {
+    "file": "forest_ground_04_Diffuse.jpg",
+    "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/forest_ground_04/forest_ground_04_diff_1k.jpg",
+    "asset_page": "https://polyhaven.com/a/forest_ground_04",
+    "license": "CC0-1.0",
+    "source_sha256": "50a4dda30875020c64385261aa7e00e2155b592302fa6794165f58fae73cbd2c",
+    "sha256": "52e81377d0f16ddf4004655254c16cc621c761b843f8c5e3281061e182fac0df",
+    "derivation": "Resized from 1k publisher source to 512px JPEG, quality 88, for mobile memory budget"
+  },
+  {
+    "file": "forest_ground_04_nor_gl.jpg",
+    "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/forest_ground_04/forest_ground_04_nor_gl_1k.jpg",
+    "asset_page": "https://polyhaven.com/a/forest_ground_04",
+    "license": "CC0-1.0",
+    "source_sha256": "9c3a0200e02ce40edffbbf9f5f623ef08ea9b1b7812b556182ec978f88887151",
+    "sha256": "2c98440b17f4b13c586c3575d4ae8feb37ab1bdcc1f00f2880400d79fc212470",
+    "derivation": "Resized from 1k publisher source to 512px JPEG, quality 88, for mobile memory budget"
+  },
+  {
+    "file": "forest_ground_04_Rough.jpg",
+    "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/forest_ground_04/forest_ground_04_rough_1k.jpg",
+    "asset_page": "https://polyhaven.com/a/forest_ground_04",
+    "license": "CC0-1.0",
+    "source_sha256": "89d4d50395eb92824a64132c4bc8a5a09009071e0b325ab66dc3104c7a3090ed",
+    "sha256": "f4c76b420d91f3ea5dfd0e176dcb95426e266bdaab567f47c74adaec3db3f602",
+    "derivation": "Resized from 1k publisher source to 512px JPEG, quality 88, for mobile memory budget"
+  },
+  {
+    "file": "leafy_grass_Diffuse.jpg",
+    "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/leafy_grass/leafy_grass_diff_1k.jpg",
+    "asset_page": "https://polyhaven.com/a/leafy_grass",
+    "license": "CC0-1.0",
+    "source_sha256": "cfa40bc9d9417d1852db8753a8d5917f110c40101179f63543c382e39bc05e4a",
+    "sha256": "a48110463d07db59994380082e6562172d2a46a4bd568dd7493addd91806208e",
+    "derivation": "Resized from 1k publisher source to 512px JPEG, quality 88, for mobile memory budget"
+  },
+  {
+    "file": "leafy_grass_nor_gl.jpg",
+    "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/leafy_grass/leafy_grass_nor_gl_1k.jpg",
+    "asset_page": "https://polyhaven.com/a/leafy_grass",
+    "license": "CC0-1.0",
+    "source_sha256": "832328216adc0a7e1f70a31d5ee48c9ab7f2152d83816122736cf42ac4b2ebd6",
+    "sha256": "203ad61db02e4ba75ad4ea2644bf7f8b3ec23de135686836bc37ed6d8791c67b",
+    "derivation": "Resized from 1k publisher source to 512px JPEG, quality 88, for mobile memory budget"
+  },
+  {
+    "file": "leafy_grass_Rough.jpg",
+    "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/leafy_grass/leafy_grass_rough_1k.jpg",
+    "asset_page": "https://polyhaven.com/a/leafy_grass",
+    "license": "CC0-1.0",
+    "source_sha256": "0c2a1d91aacb8e54a496051b59854e51e456fe858abeade778e308359ef16463",
+    "sha256": "cbe8b9084b822c1a9425cf5f78f1599c8de0fde50fc3ee1cdba3440c0def09bd",
+    "derivation": "Resized from 1k publisher source to 512px JPEG, quality 88, for mobile memory budget"
+  },
+  {
+    "file": "corrugated_iron_02_Diffuse.jpg",
+    "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/corrugated_iron_02/corrugated_iron_02_diff_1k.jpg",
+    "asset_page": "https://polyhaven.com/a/corrugated_iron_02",
+    "license": "CC0-1.0",
+    "source_sha256": "7a7b43099d015c1b08ebb175da5965caeae44b86de65a727b3fffa20a7c69a93",
+    "sha256": "7d854d1d912e1f404b7f885a9812454e54aef33ead6bfd10fc30a2d1b0a92b70",
+    "derivation": "Resized from 1k publisher source to 512px JPEG, quality 88, for mobile memory budget"
+  },
+  {
+    "file": "corrugated_iron_02_nor_gl.jpg",
+    "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/corrugated_iron_02/corrugated_iron_02_nor_gl_1k.jpg",
+    "asset_page": "https://polyhaven.com/a/corrugated_iron_02",
+    "license": "CC0-1.0",
+    "source_sha256": "9743c93668689c36a67e9c4dc8d6a0870fe91202f82dcdaf70ddc330c12f9ecb",
+    "sha256": "c55f591389093a1ec2839c15c26a6466a6a45685d660df23128c5c36e8f177d8",
+    "derivation": "Resized from 1k publisher source to 512px JPEG, quality 88, for mobile memory budget"
+  },
+  {
+    "file": "corrugated_iron_02_Rough.jpg",
+    "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/corrugated_iron_02/corrugated_iron_02_rough_1k.jpg",
+    "asset_page": "https://polyhaven.com/a/corrugated_iron_02",
+    "license": "CC0-1.0",
+    "source_sha256": "56ec8d8b04bac56b5d85ee2f35256b7b00d8c7a0ef13e6791cdabc5c05ed2f4b",
+    "sha256": "464eb30def982e4e2edaf7bdd9717bb4c61f8925f3d3613966f05a4b0cf228da",
+    "derivation": "Resized from 1k publisher source to 512px JPEG, quality 88, for mobile memory budget"
+  },
+  {
+    "file": "red_brick_03_Diffuse.jpg",
+    "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/red_brick_03/red_brick_03_diff_1k.jpg",
+    "asset_page": "https://polyhaven.com/a/red_brick_03",
+    "license": "CC0-1.0",
+    "source_sha256": "9c58254c099b2d211478f50a427fcdde622af24249ff2e94da41fb836f8c857f",
+    "sha256": "afa0f8c6dadff275c8c9fc5dacd0688e5854f76b14f077f85c503071f6c42674",
+    "derivation": "Resized from 1k publisher source to 512px JPEG, quality 88, for mobile memory budget"
+  },
+  {
+    "file": "red_brick_03_nor_gl.jpg",
+    "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/red_brick_03/red_brick_03_nor_gl_1k.jpg",
+    "asset_page": "https://polyhaven.com/a/red_brick_03",
+    "license": "CC0-1.0",
+    "source_sha256": "9bfd45e24720d851017c1e1678b70219c72239b2ac6b25e11d57d458bdab8503",
+    "sha256": "221848cd88a32a236a8f66d84b6e13f7e7c96e593060d56c18e7d12e8a506ad2",
+    "derivation": "Resized from 1k publisher source to 512px JPEG, quality 88, for mobile memory budget"
+  },
+  {
+    "file": "red_brick_03_Rough.jpg",
+    "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/red_brick_03/red_brick_03_rough_1k.jpg",
+    "asset_page": "https://polyhaven.com/a/red_brick_03",
+    "license": "CC0-1.0",
+    "source_sha256": "cd865623c1422926848024e877103e9dfe857b2ca8221fce49264b74c9ff48b1",
+    "sha256": "b98d3ef4d05d7260ccab9539c53e8f106d5ec45883a9d482b3702bc0b51d489b",
+    "derivation": "Resized from 1k publisher source to 512px JPEG, quality 88, for mobile memory budget"
+  }
+]

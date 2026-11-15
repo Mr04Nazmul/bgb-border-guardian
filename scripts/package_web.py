@@ -59,7 +59,7 @@ config = json.loads(re.search(r'const GODOT_CONFIG = (\{.*?\});',html).group(1))
 config['persistentPaths'] = [] # Web saves use localStorage; avoid Safari IDB initialization stalls.
 config['mainPack'] = 'index.pck?v='+rev
 config['fileSizes'][config['mainPack']] = (dist/'index.pck').stat().st_size
-shell = (root/'scripts/web_shell.html').read_text().replace('__CONFIG__',json.dumps(config)).replace('__REV__',rev)
+shell = (root/'scripts/web_shell.html').read_text().replace('__CONFIG__',json.dumps(config)).replace('__REV__',rev).replace('__DOWNLOAD_MB__',str(round((len(compressed)+(dist/'index.pck').stat().st_size)/1000000)))
 (dist/'index.html').write_text(shell)
 for stale in ['index.wasm','engine-0.bin','engine-1.bin']:
     (dist/stale).unlink(missing_ok=True)
