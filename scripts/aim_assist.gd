@@ -6,12 +6,13 @@ var enabled:=true
 var strength:=0.8
 var acquisition_left:=0.0
 func hostile(actor: CharacterBody3D) -> bool:
-	return is_instance_valid(actor) and actor.visible and actor.health>0 and actor.dead_left<=0 and not actor.eliminated and (actor.team>=100 if arena.royale else actor.team==1)
+	return is_instance_valid(actor) and actor.visible and actor.health>0 and actor.dead_left<=0 and not actor.eliminated and arena.hostile_to_player(actor)
 func aim_point(actor: CharacterBody3D) -> Vector3:
-	return actor.global_position+Vector3(0,1.07 if actor.crouched else 1.17,0)
+	return actor.global_position+Vector3(0,.4 if actor.downed else (1.07 if actor.crouched else 1.17),0)
 func visible_target(actor: CharacterBody3D) -> bool:
 	var p: CharacterBody3D=arena.game.player
 	var point:=aim_point(actor)
+	if arena.royale and arena.br.ext.line_smoked(p.camera.global_position,point):return false
 	var excluded: Array[RID]=[p.get_rid()]
 	var camera_hit: Dictionary=arena.ray(p.camera.global_position,point,excluded)
 	if not camera_hit.is_empty() and camera_hit.collider!=actor:return false
@@ -38,7 +39,7 @@ func acquire() -> CharacterBody3D:
 	return best
 func tick(dt: float) -> void:
 	var p: CharacterBody3D=arena.game.player
-	if not enabled or not arena.active or arena.game.paused or not arena.game.playing or p.driving or arena.respawn_left>0 or not arena.result.is_empty() or (arena.royale and (not arena.br.player_alive or arena.br.inventory.is_empty())):
+	if not enabled or not arena.active or arena.game.paused or not arena.game.playing or p.driving or arena.respawn_left>0 or not arena.result.is_empty() or (arena.royale and (not arena.br.player_alive or arena.br.inventory.is_empty() or arena.br.ext.player_downed)):
 		target=null;return
 	if not (arena.aim or arena.fire_held or arena.mouse_fire):target=null;return
 	acquisition_left-=dt

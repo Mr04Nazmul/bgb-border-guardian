@@ -1,0 +1,7 @@
+.git
+.godot
+dist
+build
+tests
+*.tar.gz
+*.zip

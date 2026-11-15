@@ -118,6 +118,7 @@ func start_match() -> void:
 	crosshair.show()
 	for control in controls:control.show()
 func stop_match() -> void:
+	if is_instance_valid(game.online) and game.online.active:game.online.disconnect_server()
 	if is_instance_valid(br):br.stop()
 	royale=false
 	active=false
@@ -140,11 +141,12 @@ func stop_match() -> void:
 	if is_instance_valid(label):label.text=""
 	if is_instance_valid(game.marker):game.marker.show()
 func reload_weapon() -> void:
+	if is_instance_valid(game.online) and game.online.active:game.online.reload_request=true;return
 	if active and not game.paused and respawn_left<=0 and reload_left<=0 and ammo<mag_capacity() and reserve>0:
 		if royale:br.heal_left=0
 		reload_left=1.8
 func mag_capacity() -> int:
-	return int(br.weapon_stat("mag",24)) if royale else 24
+	return int(br.weapon_stat("mag",24))+br.ext.mag_bonus() if royale else 24
 func damage_player(amount: float) -> void:
 	if royale:
 		br.damage_player(amount)
@@ -166,11 +168,12 @@ func ray(from: Vector3,to: Vector3,excluded: Array[RID]) -> Dictionary:
 	query.exclude=excluded
 	return get_world_3d().direct_space_state.intersect_ray(query)
 func fire_player() -> bool:
+	if is_instance_valid(game.online) and game.online.active:return false
 	if not active or game.paused or respawn_left>0 or reload_left>0 or shot_left>0 or game.player.driving or not result.is_empty():return false
 	if royale and br.heal_left>0:
 		br.heal_left=0
 		return false
-	if royale and br.inventory.is_empty():return false
+	if royale and (br.inventory.is_empty() or br.ext.player_downed):return false
 	if ammo<=0:
 		reload_weapon()
 		return false
@@ -194,12 +197,13 @@ func fire_player() -> bool:
 	if not obstruction.is_empty() and not obstruction.collider is CharacterBody3D:blocked_left=.2
 	if not hit.is_empty() and hit.collider is CharacterBody3D and hit.collider in actors:
 		var actor: CharacterBody3D=hit.collider
-		if actor.team==1 or (royale and actor.team>=100):
+		if hostile_to_player(actor):
 			var multiplier:=2.0 if hit.position.y-actor.global_position.y>(1.25 if actor.crouched else 1.48) else 1.0
-			actor.receive_damage((br.weapon_stat("damage",34) if royale else 34)*multiplier,0)
+			actor.receive_damage((br.weapon_stat("damage",34) if royale else 34)*multiplier,player_team(),multiplier>1)
 			crosshair.modulate=Color("ffb46a")
 		elif actor.team==2:
 			game.notify(game.tr2("গ্রামের মানুষ লক্ষ্য নয়।","Civilians are not targets."))
+	if royale and not hit.is_empty():br.ext.hit_cover(hit.collider,br.weapon_stat("damage",34))
 	trace(muzzle,target,Color("ffe0a0"))
 	return true
 func trace(from: Vector3,to: Vector3,color: Color) -> void:
@@ -218,7 +222,8 @@ func trace(from: Vector3,to: Vector3,color: Color) -> void:
 func bot_fire(actor: CharacterBody3D,target: Node3D) -> void:
 	if royale and (not actor.has_weapon or actor.rounds<=0 or actor.reload_timer>0):return
 	var from: Vector3=actor.position+Vector3(0,1.1 if actor.crouched else 1.35,0)
-	var to: Vector3=target.position+Vector3(0,0.42 if target==game.player and game.player.prone else (1.03 if target==game.player and game.player.crouched else 1.1),0)
+	var to: Vector3=target.position+Vector3(0,.4 if target!=game.player and target.downed else (0.42 if target==game.player and game.player.prone else (1.03 if target==game.player and game.player.crouched else 1.1)),0)
+	if royale and br.ext.line_smoked(from,to):return
 	var hit:=ray(from,to,[actor.get_rid()])
 	if hit.is_empty():return
 	if hit.collider!=target and not (target==game.player and game.player.driving and hit.collider==game.jeep):return
@@ -233,7 +238,7 @@ func bot_fire(actor: CharacterBody3D,target: Node3D) -> void:
 func target_for(actor: CharacterBody3D) -> Node3D:
 	var best: Node3D=null
 	var nearest:=75.0
-	if (actor.team==1 or royale) and respawn_left<=0 and (not royale or br.player_alive):
+	if actor.team!=player_team() and (actor.team==1 or royale) and respawn_left<=0 and (not royale or br.player_alive):
 		var dist: float=actor.position.distance_to(game.player.position)
 		if dist<nearest:best=game.player;nearest=dist
 	for other in actors:
@@ -251,6 +256,7 @@ func finish() -> void:
 	game.item(game.tr2("প্রধান মেনু","Main menu"),func():stop_match();game.show_menu())
 func _process(dt: float) -> void:
 	if not is_instance_valid(game) or game.paused or not game.playing:return
+	if is_instance_valid(game.online) and game.online.active:return
 	for effect in traces.duplicate():
 		effect.life-=dt
 		if effect.life<=0:
@@ -280,7 +286,7 @@ func _process(dt: float) -> void:
 	else:
 		if game.player.health<=0:damage_player(100)
 		if fire_held or mouse_fire:fire_player()
-	game.player.camera.fov=lerpf(game.player.camera.fov,50.0 if aim else 70.0,1.0-exp(-14*dt))
+	game.player.camera.fov=lerpf(game.player.camera.fov,(35.0 if royale and br.ext.attached("scope") else 50.0) if aim else 70.0,1.0-exp(-14*dt))
 	if royale:
 		br.tick(dt)
 		return
@@ -297,3 +303,7 @@ func set_trigger(source: String,pressed: bool) -> void:
 	if pressed:fire_sources[source]=true
 	else:fire_sources.erase(source)
 	fire_held=not fire_sources.is_empty()
+
+func player_team() -> int:return 100 if royale and br.ext.squad else 0
+func hostile_to_player(actor: CharacterBody3D) -> bool:
+	return actor.team>=100 and actor.team!=player_team() if royale else actor.team==1

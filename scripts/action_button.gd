@@ -46,6 +46,6 @@ func _draw() -> void:
 	else:
 		draw_rect(Rect2(center-Vector2(k*.5,k*.5),Vector2.ONE*k),c,false,2)
 	if kind not in ["FIRE","FIRE_L","II","ADS"]:
-		var font:=get_theme_default_font();var caption:=kind
+		var font:=get_theme_default_font();var caption:=kind+(" "+str(get_meta("count")) if has_meta("count") else "")
 		var w:=font.get_string_size(caption,HORIZONTAL_ALIGNMENT_LEFT,-1,10).x
 		draw_string(font,Vector2(center.x-w*.5,size.y-5),caption,HORIZONTAL_ALIGNMENT_LEFT,-1,10,c)

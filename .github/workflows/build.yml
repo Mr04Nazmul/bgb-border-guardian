@@ -77,6 +77,9 @@ jobs:
           grep 'ACTION MATRIX PASS' build/action-matrix.log
           XDG_DATA_HOME=/tmp/bgb-aim-check timeout 60 godot --headless --script tests/aim_assist_check.gd 2>&1 | tee build/aim-assist.log
           grep 'AIM ASSIST PASS' build/aim-assist.log
+          timeout 60 godot --headless --script tests/survival_check.gd 2>&1 | tee build/survival.log
+          grep 'SURVIVAL PASS' build/survival.log
+          GODOT_BIN=godot python3 tests/run_network.py
       - name: Build Android APK and verify signature
         shell: bash
         run: |

@@ -125,3 +125,18 @@ Auto Aim is ON by default for this offline game. While ADS or a fire trigger is 
 Rapid stance taps are buffered rather than discarded during the 160 ms stance lock. A dedicated STAND action exits crouch or prone. Locomotion animation now follows actual horizontal movement, so pushing against a wall does not keep a walking animation. Crouched/prone facing remains aligned to the camera even before weapon pickup. Standing/crouched damage capsules now match the visible rig more closely (1.85 / 1.50 m); crouched chest/head targeting was adjusted accordingly.
 
 Validation includes `tests/aim_assist_check.gd`: target selection/convergence, manual priority, visibility/wall/faction/death/angle/range rejection, unarmed BR, rapid stance input, explicit standing, pause and saved preference. Existing combined-action, rig, combat and BR tests remain. This is an original assisted controller, not Free Fire's proprietary implementation. Physical iPhone touch feel and GPU performance are not confirmed by headless tests.
+
+## v0.9.0 — survival expansion and online foundation
+
+Graphics/map/character assets are unchanged. Added original offline gameplay systems:
+
+- Backpack weight/capacity, backpack upgrade, partial ammo pickup, resource caps, paused inventory/drop menu and optional nearby auto-pickup.
+- Five weapon stat profiles: pistol, rifle, shotgun, SMG and sniper; per-weapon scope/extended-mag/grip attachments. Scope changes ADS FOV, extended magazine changes capacity, grip reduces recoil. The visual rifle remains the shared prototype prop; shotgun fire remains simplified single-hit hitscan.
+- Helmet durability, medkits, bandages capped at 75 HP, timed energy regeneration; healing cancels on movement/fire/damage.
+- Fused bouncing frag grenades with physics LOS blast protection, temporary smoke that blocks bot/assisted sight, and destructible temporary cover with collision.
+- Offline squad BR: 5 squads of 4 (player + 3 allies), faction-safe targeting, knock/25-second bleedout, player and bot 3-second revive channels, squad wipe rules, teammate spectating after elimination, squad victory and restart cleanup. Solo BR remains available.
+- **Custom online prototype** with a real headless Godot WebSocket authority and browser/native client: 2–4 players, host lobby/start/rematch, replicated characters, server movement/collision, rifle ammo/reload/hits, zone and winner. See `network/README.md`. No permanent WSS server is deployed, so online mode requires a supplied server endpoint.
+
+Tests: survival rules, original BR/combat/aim/control/rig regressions, autonomous bot simulation, actual two-client WebSocket/server integration and two full game-client scenes. Web export and loader checks are required before publishing. iPhone input feel, GPU FPS, sustained multiplayer latency and Docker deployment remain unverified.
+
+Still unfinished: production online hosting/authentication/matchmaking, online inventory/squads/vehicles, ranked seasons/leaderboards, 50-player networking, parachute/plane sequence, original character abilities/pets, guilds/social/voice chat, stores/events and full content parity. This project is not a complete Free Fire replacement, and no game-service parity is claimed.

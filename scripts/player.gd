@@ -105,6 +105,11 @@ func _physics_process(dt: float) -> void:
 		return
 	if driving:
 		return
+	if is_instance_valid(get_parent().online) and get_parent().online.active:
+		if health<=0:velocity=Vector3.ZERO;return
+		if jump_requested:get_parent().online.jump_request=true
+	if get_parent().combat.royale and get_parent().combat.br.ext.player_downed:
+		prone=true;crouched=false;jump_requested=false;running=false;requested_stance=""
 	stance_lock=maxf(0,stance_lock-dt)
 	manual_look_left=maxf(0,manual_look_left-dt)
 	if not requested_stance.is_empty() and stance_lock<=0:apply_requested_stance()
@@ -189,7 +194,7 @@ func toggle_prone() -> void:
 	request_stance("stand" if current=="prone" else "prone")
 func stand_up() -> void:request_stance("stand")
 func request_stance(target: String) -> void:
-	if driving or (target=="prone" and not is_on_floor()):return
+	if driving or (get_parent().combat.royale and get_parent().combat.br.ext.player_downed) or (target=="prone" and not is_on_floor()):return
 	requested_stance=target
 	if stance_lock<=0:apply_requested_stance()
 func apply_requested_stance() -> void:
@@ -207,8 +212,11 @@ func stance_clear(stance: String) -> bool:
 	return get_world_3d().direct_space_state.intersect_shape(query,1).is_empty()
 func kick_weapon() -> void:
 	recoil=1
-	look_pending.y-=.006*(.4 if prone else (.65 if crouched else 1.0))
+	var reduction:=.65 if get_parent().combat.royale and get_parent().combat.br.ext.attached("grip") else 1.0
+	look_pending.y-=.006*reduction*(.4 if prone else (.65 if crouched else 1.0))
 
 func reset_motion() -> void:
+	show();collision_layer=1;collision_mask=1
+	camera.transform=Transform3D.IDENTITY
 	stick=Vector2.ZERO;look_pending=Vector2.ZERO;velocity=Vector3.ZERO;requested_stance="";manual_look_left=0
 	running=false;crouched=false;prone=false;jump_requested=false;stance_lock=0;recoil=0;stamina=100

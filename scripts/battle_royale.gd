@@ -1,5 +1,6 @@
 extends Node3D
 # Original offline solo battle royale: no network service or copied game assets.
+var ext: Node3D
 var arena: Node3D
 var loot: Array[Dictionary]=[]
 var inventory: Array[String]=[]
@@ -24,13 +25,14 @@ var start_radius:=230.0
 var elapsed:=0.0
 var wall: MeshInstance3D
 var extra_controls: Array[Button]=[]
-const WEAPONS={"pistol":{"mag":12,"damage":24,"interval":0.32,"range":80},"rifle":{"mag":24,"damage":34,"interval":0.16,"range":150},"shotgun":{"mag":6,"damage":65,"interval":0.85,"range":32}}
+const WEAPONS={"pistol":{"mag":12,"damage":24,"interval":0.32,"range":80},"rifle":{"mag":24,"damage":34,"interval":0.16,"range":150},"shotgun":{"mag":6,"damage":65,"interval":0.85,"range":32},"smg":{"mag":30,"damage":21,"interval":0.085,"range":95},"sniper":{"mag":5,"damage":80,"interval":1.1,"range":220}}
 const RADII=[230.0,170.0,125.0,85.0,55.0,30.0,12.0,0.0]
 func setup(owner_arena: Node3D,root: Control) -> void:
 	arena=owner_arena
 	extra_controls.append(arena.game.action_button(root,"HEAL",Vector2(275,535),Vector2(72,72),use_medkit))
 	extra_controls.append(arena.game.action_button(root,"SLOT1",Vector2(910,170),Vector2(130,54),select_weapon.bind(0)))
 	extra_controls.append(arena.game.action_button(root,"SLOT2",Vector2(1050,170),Vector2(130,54),select_weapon.bind(1)))
+	ext=preload("res://scripts/survival_systems.gd").new();add_child(ext);ext.setup(self,root)
 	for b in extra_controls:b.set_meta("royale",true);b.hide()
 	var mesh:=CylinderMesh.new()
 	mesh.top_radius=1;mesh.bottom_radius=1;mesh.height=1;mesh.radial_segments=96
@@ -43,8 +45,9 @@ func setup(owner_arena: Node3D,root: Control) -> void:
 	mat.cull_mode=BaseMaterial3D.CULL_DISABLED
 	wall.material_override=mat;wall.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(wall);wall.hide()
-func start() -> void:
+func start(as_squad: bool=false) -> void:
 	arena.stop_match()
+	ext.reset(as_squad)
 	arena.royale=true;arena.active=true;arena.result=""
 	inventory.clear();magazines.clear();selected=0;medkits=0;armor=0;kills=0;bot_shots=0;player_alive=true
 	heal_left=0;phase=0;phase_time=0;shrinking=false;elapsed=0
@@ -62,9 +65,13 @@ func start() -> void:
 	var spawns: Array[Vector2]=[Vector2(-150,-125),Vector2(-125,-80),Vector2(-130,-20),Vector2(-155,50),Vector2(-110,80),Vector2(-75,125),Vector2(130,30),Vector2(15,105),Vector2(45,70),Vector2(52,15),Vector2(38,-35),Vector2(25,-95),Vector2(-10,-125),Vector2(-45,-145),Vector2(135,-110),Vector2(160,80),Vector2(-50,45),Vector2(-90,20),Vector2(15,-145)]
 	for i in spawns.size():
 		var p:=spawns[i]
-		var actor: CharacterBody3D=arena.spawn_actor(100+i,Vector3(p.x,game.landscape.height_at(p.x,p.y)+1,p.y))
+		var team:=100+i
+		if as_squad:
+			team=100 if i<3 else 101+int((i-3)/4)
+			p=Vector2(-12+i*4,42+i*2) if i<3 else [Vector2(-130,-90),Vector2(-120,80),Vector2(40,-80),Vector2(140,55)][int((i-3)/4)]+Vector2(float(i%2)*4,float(i%4)*3)
+		var actor: CharacterBody3D=arena.spawn_actor(team,Vector3(p.x,game.landscape.height_at(p.x,p.y)+1,p.y))
 		actor.has_weapon=false;actor.rounds=0;actor.reserve_rounds=0
-		add_loot("rifle" if i%3==0 else "pistol",Vector3(p.x+3,0,p.y+2))
+		add_loot(["rifle","pistol","smg","shotgun","sniper"][i%5],Vector3(p.x+3,0,p.y+2))
 		add_loot("ammo",Vector3(p.x-3,0,p.y+2),48)
 		if i%3==0:add_loot("medkit",Vector3(p.x+2,0,p.y-3))
 		if i%4==0:add_loot("armor",Vector3(p.x-2,0,p.y-3))
@@ -72,12 +79,14 @@ func start() -> void:
 	add_loot("rifle",Vector3(-8,0,39));add_loot("ammo",Vector3(-6,0,39),72)
 	add_loot("medkit",Vector3(-10,0,39));add_loot("armor",Vector3(-12,0,39))
 	add_loot("shotgun",Vector3(5,0,-10));add_loot("ammo",Vector3(7,0,-10),36)
+	for spec in [["backpack",Vector3(-4,0,39)],["grenade",Vector3(-5,0,37)],["smoke",Vector3(-6,0,37)],["cover",Vector3(-7,0,37)],["bandage",Vector3(-9,0,37)],["energy",Vector3(-10,0,37)],["helmet",Vector3(-11,0,37)],["scope",Vector3(-12,0,37)],["extended_mag",Vector3(-13,0,37)],["grip",Vector3(-14,0,37)]]:add_loot(spec[0],spec[1])
 	arena.crosshair.show()
 	for b in arena.controls:b.show()
 	for b in extra_controls:b.show()
 	wall.show();update_wall()
 	game.notify(game.tr2("একবারই জীবন! E দিয়ে loot নিন। নীল zone এড়িয়ে চলুন।","One life! E to loot. Stay inside the blue zone."))
 func stop() -> void:
+	if is_instance_valid(ext):ext.cleanup()
 	for item in loot:
 		if is_instance_valid(item.node):item.node.queue_free()
 	loot.clear()
@@ -116,23 +125,37 @@ func consume(item: Dictionary) -> void:
 	loot.erase(item)
 	if is_instance_valid(item.node):item.node.queue_free()
 func pickup_nearest() -> bool:
-	if not arena.royale or arena.game.paused or not player_alive:return false
+	if not arena.royale or arena.game.paused or not player_alive or ext.player_downed:return false
 	var item:=nearest_loot(arena.game.player.position)
 	if item.is_empty() or arena.game.player.position.distance_to(item.pos)>3:return false
 	var kind: String=item.kind
 	if WEAPONS.has(kind):
 		var picked_rounds:=clampi(int(item.loaded) if int(item.loaded)>=0 else int(WEAPONS[kind].mag),0,int(WEAPONS[kind].mag))
-		if inventory.has(kind):arena.reserve+=picked_rounds
+		if inventory.has(kind):
+			if ext.room_for("ammo",picked_rounds)<picked_rounds:return false
+			arena.reserve+=picked_rounds
 		else:
 			if not inventory.is_empty():magazines[weapon_id()]=arena.ammo
-			if inventory.size()<2:inventory.append(kind);selected=inventory.size()-1
+			if inventory.size()<2:
+				if ext.weight()+20>ext.capacity:return false
+				inventory.append(kind);selected=inventory.size()-1
 			else:
 				add_loot(weapon_id(),arena.game.player.position+Vector3(1,0,0),1,arena.ammo);inventory[selected]=kind
 			arena.ammo=picked_rounds;magazines[kind]=arena.ammo
 			arena.reload_left=0;heal_left=0
-	elif kind=="ammo":arena.reserve+=int(item.amount)
-	elif kind=="medkit":medkits=mini(medkits+1,5)
-	elif kind=="armor":armor=maxf(armor,75)
+	elif kind=="ammo":
+		var take: int=ext.room_for("ammo",int(item.amount))
+		if take<=0:return false
+		arena.reserve+=take
+		if take<int(item.amount):item.amount-=take;return true
+	elif kind=="medkit":
+		if medkits>=5 or ext.room_for(kind,1)<=0:return false
+		medkits+=1
+	elif kind=="armor":
+		if armor>=75:return false
+		armor=75
+	elif ext.SPECIAL.has(kind):
+		if not ext.accept_special(kind):return false
 	consume(item)
 	arena.game.notify(arena.game.tr2("নিয়েছেন: ","Picked up: ")+kind)
 	return true
@@ -144,24 +167,31 @@ func select_weapon(index: int) -> void:
 	magazines[weapon_id()]=arena.ammo;selected=index
 	arena.ammo=int(magazines.get(weapon_id(),0));arena.reload_left=0;heal_left=0
 func use_medkit() -> void:
-	if not arena.royale or arena.game.paused or not player_alive or medkits<=0 or heal_left>0 or arena.game.player.health>=100:return
-	heal_left=4;heal_origin=arena.game.player.position;arena.fire_held=false;arena.mouse_fire=false;arena.fire_sources.clear();arena.reload_left=0
-func damage_player(amount: float,use_armor: bool=true) -> void:
+	ext.start_heal("medkit" if medkits>0 else "bandage")
+func damage_player(amount: float,use_armor: bool=true,head: bool=false) -> void:
 	if not arena.active or arena.game.paused or not player_alive or not arena.result.is_empty():return
-	heal_left=0
+	heal_left=0;ext.revive_target=null
+	if ext.player_downed:
+		ext.player_bleed-=amount*.3
+		return
+	if head and ext.helmet>0:
+		var protect:=minf(ext.helmet,amount*.5);ext.helmet-=protect;amount-=protect
 	var absorbed:=minf(armor,amount*0.5) if use_armor else 0.0;armor-=absorbed
 	arena.game.player.health=maxf(0,arena.game.player.health-(amount-absorbed))
 	if arena.game.player.health<=0:
+		if ext.knock_player():return
+		if ext.squad:ext.eliminate_player();return
 		player_alive=false;arena.fire_held=false
 		if arena.game.player.driving:arena.game.leave_vehicle()
 		finish(false,alive_count()+1)
-func eliminated(actor: CharacterBody3D,killer: int) -> void:
+func eliminated(actor: CharacterBody3D,killer: int,force: bool=false) -> void:
 	if actor.eliminated:return
+	if not force and ext.knock_actor(actor):return
 	actor.eliminated=true;actor.hide();actor.collision_layer=0;actor.collision_mask=0;actor.shot_audio.stop()
-	if killer==0:kills+=1
+	if killer==arena.player_team():kills+=1
 	if actor.has_weapon:add_loot(actor.weapon_kind,actor.position,1,actor.rounds)
 	if actor.reserve_rounds>0:add_loot("ammo",actor.position+Vector3(1,0,0),actor.reserve_rounds)
-	if player_alive and alive_count()==1:finish(true,1)
+	if ext.squad_victory():finish(true,1)
 func nearest_kind(pos: Vector3,kind: String) -> Dictionary:
 	var best: Dictionary={};var distance:=INF
 	for item in loot:
@@ -218,19 +248,20 @@ func tick(dt: float) -> void:
 		if arena.game.player.position.distance_to(heal_origin)>0.6 or arena.fire_held:heal_left=0
 		else:
 			heal_left-=dt
-			if heal_left<=0:medkits-=1;arena.game.player.health=minf(100,arena.game.player.health+50)
+			if heal_left<=0:ext.complete_heal()
+	ext.tick(dt)
 	var nearby:=nearest_loot(arena.game.player.position)
 	var hint: String=""
 	if not nearby.is_empty() and arena.game.player.position.distance_to(nearby.pos)<3:hint="\n[E] LOOT: "+str(nearby.kind)
 	var weapon:=weapon_id().to_upper() if not inventory.is_empty() else "UNARMED • E TO LOOT"
-	arena.label.text="BR • ALIVE "+str(alive_count())+"  KILLS "+str(kills)+"\n"+weapon+"  "+str(arena.ammo)+" / "+str(arena.reserve)+"\nARMOR "+str(int(armor))+" • MED "+str(medkits)+"\nZONE "+str(phase+1)+" • "+("SHRINK " if shrinking else "WAIT ")+str(ceili(maxf(0,(30 if shrinking else 20)-phase_time)))+"s"
+	arena.label.text=("SQUAD • ALIVE " if ext.squad else "SOLO • ALIVE ")+str(alive_count())+("  TEAM KILLS " if ext.squad else "  KILLS ")+str(kills)+"\n"+weapon+"  "+str(arena.ammo)+" / "+str(arena.reserve)+"\nARMOR "+str(int(armor))+" • MED "+str(medkits)+"\nZONE "+str(phase+1)+" • "+("SHRINK " if shrinking else "WAIT ")+str(ceili(maxf(0,(30 if shrinking else 20)-phase_time)))+"s"
 	if not hint.is_empty():arena.game.notify(hint.replace("[E] LOOT:","USE • সংগ্রহ:"))
 	if heal_left>0:arena.label.text+="\nHEALING "+str(ceili(heal_left))+"s • Stay still"
-	if player_alive and alive_count()==1:finish(true,1)
+	if ext.squad_victory():finish(true,1)
 func finish(won: bool,rank: int) -> void:
 	if not arena.result.is_empty():return
 	arena.result=arena.game.tr2("শেষ পর্যন্ত বেঁচেছেন!","LAST SURVIVOR!") if won else arena.game.tr2("বাদ পড়েছেন","ELIMINATED")
 	arena.game.paused=true;arena.fire_held=false
-	arena.game.clear_menu(arena.result+"\nRANK #"+str(rank)+" / 20 • KILLS "+str(kills))
-	arena.game.item(arena.game.tr2("আবার Battle Royale","Play Battle Royale again"),start)
+	arena.game.clear_menu(arena.result+"\nRANK #"+str(rank)+(" / 5 SQUADS • TEAM KILLS " if ext.squad else " / 20 • KILLS ")+str(kills))
+	arena.game.item(arena.game.tr2("আবার Battle Royale","Play Battle Royale again"),start.bind(ext.squad))
 	arena.game.item(arena.game.tr2("প্রধান মেনু","Main menu"),func():arena.stop_match();arena.game.show_menu())

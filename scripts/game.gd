@@ -1,5 +1,6 @@
 extends Node3D
 const Combat = preload("res://scripts/combat.gd")
+var online: Node
 var combat: Node3D
 const Player = preload("res://scripts/player.gd")
 const Jeep = preload("res://scripts/jeep.gd")
@@ -205,6 +206,7 @@ func make_ui() -> void:
 	combat = Combat.new()
 	add_child(combat)
 	combat.setup(self,root)
+	online=preload("res://network/online_client.gd").new();online.game=self;add_child(online)
 	var shooter_hud:=preload("res://scripts/shooter_hud.gd").new();shooter_hud.game=self;root.add_child(shooter_hud)
 	menu = PanelContainer.new()
 	menu.position = Vector2(370,50)
@@ -219,7 +221,10 @@ func make_ui() -> void:
 	root.add_child(menu)
 	menu_box = VBoxContainer.new()
 	menu_box.add_theme_constant_override("separation",9)
-	menu.add_child(menu_box)
+	var menu_scroll:=ScrollContainer.new();menu_scroll.custom_minimum_size=Vector2(480,584)
+	menu_scroll.horizontal_scroll_mode=ScrollContainer.SCROLL_MODE_DISABLED
+	menu.add_child(menu_scroll);menu_scroll.add_child(menu_box)
+	menu_box.size_flags_horizontal=Control.SIZE_EXPAND_FILL
 func button(parent: Node,text: String,pos: Vector2,size: Vector2,action: Callable) -> Button:
 	var b := Button.new()
 	b.text = text
@@ -239,6 +244,7 @@ func action_button(parent: Node,text: String,pos: Vector2,dimensions: Vector2,ac
 	touch.actions.append({"button":b,"area":Rect2(pos,dimensions)})
 	return b
 func clear_menu(title: String) -> void:
+	if menu_box.get_parent() is ScrollContainer:menu_box.get_parent().scroll_vertical=0
 	for c in menu_box.get_children():
 		menu_box.remove_child(c)
 		c.queue_free()
@@ -257,6 +263,8 @@ func show_menu() -> void:
 	sub.text = tr2("কাল্পনিক উদ্ধার ও প্রশিক্ষণ অভিযান\nকোনো সরকারি সংস্থার অনুমোদিত নয়","Fictional rescue & training simulator\nNot affiliated with any government agency")
 	menu_box.add_child(sub)
 	item("Battle Royale • Offline Solo",combat.br.start)
+	item("Squad BR • Offline Bots",combat.br.start.bind(true))
+	item("Online • Custom Server",online.menu)
 	item(tr2("দলীয় যুদ্ধ • Offline Bots","Team Match • Offline Bots"),combat.start_match)
 	item(tr2("খেলা শুরু","Start Game"),func(): start_mission(0))
 	item(tr2("চালিয়ে যান","Continue"),func():
@@ -347,7 +355,9 @@ func toggle_pause() -> void:
 		save_game()
 		show_menu()
 func interact() -> void:
+	if is_instance_valid(online) and online.active:return
 	if is_instance_valid(combat) and combat.royale and combat.active:
+		if combat.br.ext.begin_revive():return
 		if combat.br.pickup_nearest():return
 	if not playing or paused:
 		return
@@ -400,6 +410,10 @@ func _process(dt: float) -> void:
 		var b: Button=action.button
 		b.visible=playing and not paused and (not b.has_meta("combat") or combat.active) and (not b.has_meta("royale") or combat.royale)
 		b.disabled=combat.active and combat.respawn_left>0 and b.kind!="II"
+		if combat.royale:
+			var counts: Dictionary={"GREN":combat.br.ext.grenades,"SMOKE":combat.br.ext.smoke_charges,"COVER":combat.br.ext.cover_charges,"HEAL":combat.br.medkits+combat.br.ext.bandages}
+			if counts.has(b.kind):b.set_meta("count",counts[b.kind]);b.disabled=b.disabled or int(counts[b.kind])<=0
+			if combat.br.ext.player_downed and b.kind not in ["II","BAG"]:b.disabled=true
 		b.modulate.a=.4 if b.disabled else 1.0
 		b.set_meta("selected",(b.kind=="STAND" and not player.crouched and not player.prone) or (b.kind=="CROUCH" and player.crouched) or (b.kind=="PRONE" and player.prone) or (b.kind=="ADS" and combat.aim) or (b.kind=="SPRINT" and player.running))
 		if b.kind.begins_with("SLOT"):
@@ -426,6 +440,9 @@ func _process(dt: float) -> void:
 		player.position = jeep.position
 		jeep.throttle = touch.move_axis.y + float(Input.is_physical_key_pressed(KEY_S))-float(Input.is_physical_key_pressed(KEY_W))
 		jeep.steering = touch.move_axis.x + float(Input.is_physical_key_pressed(KEY_D))-float(Input.is_physical_key_pressed(KEY_A))
+	if online.active:
+		objective.text="ONLINE • "+str(online.remotes.size()+1)+" connected players"
+		stats.text="HP "+str(int(player.health));minimap.queue_redraw();return
 	var pos: Vector3 = jeep.position if player.driving else player.position
 	# River is hazardous outside the bridge; prototype has no swimming yet.
 	if pos.x>77 and pos.x<95 and absf(pos.z+90)>5:

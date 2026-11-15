@@ -9,6 +9,10 @@ var reserve_rounds:=72
 var reload_timer:=0.0
 var gun_mesh: Node3D
 var health:=100.0
+var downed:=false
+var bleed_left:=0.0
+var armor:=0.0
+var helmet:=0.0
 var dead_left:=0.0
 var shoot_left:=0.0
 var spawn_point:=Vector3.ZERO
@@ -72,9 +76,19 @@ func _ready() -> void:
 	badge.modulate=[Color("9fe5b1"),Color("f6ac91"),Color("efe6c6")][mini(team,1) if team>=100 else team]
 	badge.visibility_range_end=40;add_child(badge)
 	shoot_left=float(get_instance_id()%100)/100
-func receive_damage(amount: float,attacker_team: int) -> void:
+func receive_damage(amount: float,attacker_team: int,head: bool=false) -> void:
 	if team==2 or dead_left>0 or eliminated or attacker_team==team:return
 	alert_left=5
+	if arena.royale:
+		for key in arena.br.ext.rescue_progress.keys():
+			if arena.br.ext.rescue_progress[key].actor==self:arena.br.ext.rescue_progress.erase(key)
+		if arena.br.ext.revive_target==self:arena.br.ext.revive_target=null
+	if downed:
+		arena.br.ext.damage_downed(self,amount,attacker_team);return
+	if head and helmet>0:
+		var absorbed:=minf(helmet,amount*.5);helmet-=absorbed;amount-=absorbed
+	if armor>0:
+		var absorbed:=minf(armor,amount*.5);armor-=absorbed;amount-=absorbed
 	health=maxf(0,health-amount)
 	if health<=0:
 		arena.actor_eliminated(self,attacker_team)
@@ -84,6 +98,14 @@ func receive_damage(amount: float,attacker_team: int) -> void:
 		visual.rotation.z=PI/2
 func _physics_process(dt: float) -> void:
 	if not arena.game.playing or arena.game.paused or eliminated:return
+	if downed:
+		body_collision.shape.height=.65;body_collision.position.y=.34;gun_mesh.hide()
+		if animator.current_animation!="prone":animator.play("prone",.15)
+		animator.advance(dt);velocity.x=0;velocity.z=0;velocity.y-=22*dt;move_and_slide();return
+	if arena.royale and arena.br.ext.bot_revive(self,dt):
+		velocity=Vector3.ZERO
+		if animator.current_animation!="crouch":animator.play("crouch",.15)
+		animator.advance(dt);return
 	if team!=2 and is_instance_valid(gun_mesh):gun_mesh.visible=has_weapon
 	if arena.royale:
 		if reload_timer>0:
@@ -118,13 +140,16 @@ func _physics_process(dt: float) -> void:
 			if position.distance_to(dest)<46:
 				if shoot_left<=0:
 					arena.bot_fire(self,target)
-					shoot_left=0.7+arena.rng.randf()*0.8
+					shoot_left=(float(arena.br.WEAPONS[weapon_kind].interval)*2.5 if arena.royale else .7)+arena.rng.randf()*.5
 				if position.distance_to(dest)<17:
 					dest=position+Vector3(cos(age*.8+team),0,sin(age*.8+team))*3
 		else:
 			dest=Vector3(86,0,-90)
 		speed=1.3 if crouched else 2.8
-	if arena.royale and team>=100:dest=arena.br.bot_goal(self,dest)
+	if arena.royale and team>=100:
+		dest=arena.br.bot_goal(self,dest)
+		var rescue: Vector3=arena.br.ext.rescue_goal(self)
+		if rescue!=Vector3.INF:dest=rescue
 	# Fictional combat route funnels bots over the bridge, never through the river.
 	if team!=2:
 		if bridge_exit==0 and ((position.x<76 and dest.x>96) or (position.x>96 and dest.x<76)):
