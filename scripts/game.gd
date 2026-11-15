@@ -553,7 +553,7 @@ func physics_test() -> void:
 	touch.move_axis = Vector2.ZERO
 	player.crouched = true
 	await get_tree().physics_frame
-	assert(player.visual.scale.y<1)
+	assert(player.body_collision.shape.height<1.75)
 	player.crouched = false
 	player.position = jeep.position+Vector3(3,0,0)
 	interact()
