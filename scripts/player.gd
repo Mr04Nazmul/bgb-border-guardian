@@ -84,11 +84,13 @@ func part(pos: Vector3, size: Vector3, color: Color, parent: Node3D) -> void:
 	parent.add_child(m)
 
 func _physics_process(dt: float) -> void:
-	weapon.visible = is_instance_valid(get_parent().combat) and get_parent().combat.active
+	weapon.visible = is_instance_valid(get_parent().combat) and get_parent().combat.active and (not get_parent().combat.royale or not get_parent().combat.br.inventory.is_empty())
 	if get_parent().paused or not get_parent().playing:
 		return
 	if is_instance_valid(get_parent().combat) and get_parent().combat.active and get_parent().combat.respawn_left>0:
 		velocity = Vector3.ZERO
+		return
+	if is_instance_valid(get_parent().combat) and get_parent().combat.royale and not get_parent().combat.br.player_alive:
 		return
 	if driving:
 		return

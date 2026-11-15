@@ -1,6 +1,13 @@
 extends CharacterBody3D
 var arena: Node3D
 var team:=0 # West / east fictional teams, or civilian.
+var eliminated:=false
+var has_weapon:=true
+var weapon_kind:="rifle"
+var rounds:=24
+var reserve_rounds:=72
+var reload_timer:=0.0
+var gun_mesh: Node3D
 var health:=100.0
 var dead_left:=0.0
 var shoot_left:=0.0
@@ -25,33 +32,43 @@ func _ready() -> void:
 	var c:=CollisionShape3D.new();var shape:=CapsuleShape3D.new()
 	shape.radius=0.32;shape.height=1.75;c.shape=shape;c.position.y=0.9;add_child(c)
 	visual=Node3D.new();add_child(visual)
-	var color: Color=[Color("477453"),Color("825a46"),Color("a5a3c5")][team]
+	var color: Color=[Color("477453"),Color("825a46"),Color("a5a3c5")][mini(team,1) if team>=100 else team]
 	part(Vector3(0,1.17,0),Vector3(0.62,0.7,0.32),color,visual)
 	part(Vector3(0,1.74,0),Vector3(0.34,0.37,0.32),Color("b58b69"),visual)
 	if team!=2:
 		part(Vector3(0,1.94,0),Vector3(0.4,0.16,0.4),color.darkened(0.3),visual)
-		part(Vector3(0,1.17,-0.42),Vector3(0.1,0.12,0.85),Color("303431"),visual)
+		gun_mesh=part(Vector3(0,1.17,-0.42),Vector3(0.1,0.12,0.85),Color("303431"),visual)
 	for x in [-0.2,0.2]:
 		var leg:=Node3D.new();leg.position=Vector3(x,0.85,0);visual.add_child(leg)
 		part(Vector3(0,-0.38,0),Vector3(0.23,0.75,0.26),color.darkened(0.15),leg);legs.append(leg)
 	for x in [-0.42,0.42]:part(Vector3(x,1.13,-0.1),Vector3(0.18,0.6,0.2),color,visual)
 	var badge:=Label3D.new()
-	badge.text=["মিত্র • ALLY","প্রতিপক্ষ • BOT","গ্রামবাসী • CIVILIAN"][team]
+	badge.text=["মিত্র • ALLY","প্রতিপক্ষ • BOT","গ্রামবাসী • CIVILIAN"][mini(team,1) if team>=100 else team]
 	badge.font=load("res://assets/Bengali.ttf");badge.font_size=28;badge.pixel_size=0.008
 	badge.position.y=2.4;badge.billboard=BaseMaterial3D.BILLBOARD_ENABLED
-	badge.modulate=[Color("9fe5b1"),Color("f6ac91"),Color("efe6c6")][team]
+	badge.modulate=[Color("9fe5b1"),Color("f6ac91"),Color("efe6c6")][mini(team,1) if team>=100 else team]
 	badge.visibility_range_end=40;add_child(badge)
 	shoot_left=float(get_instance_id()%100)/100
 func receive_damage(amount: float,attacker_team: int) -> void:
-	if team==2 or dead_left>0 or attacker_team==team:return
+	if team==2 or dead_left>0 or eliminated or attacker_team==team:return
 	health=maxf(0,health-amount)
 	if health<=0:
-		arena.add_point(attacker_team)
+		arena.actor_eliminated(self,attacker_team)
+		if arena.royale:return
 		dead_left=5
 		collision_layer=0;collision_mask=0
 		visual.rotation.z=PI/2
 func _physics_process(dt: float) -> void:
-	if not arena.game.playing or arena.game.paused:return
+	if not arena.game.playing or arena.game.paused or eliminated:return
+	if team!=2 and is_instance_valid(gun_mesh):gun_mesh.visible=has_weapon
+	if arena.royale:
+		if reload_timer>0:
+			reload_timer-=dt
+			if reload_timer<=0:
+				var capacity: int=int(arena.br.WEAPONS[weapon_kind].mag)
+				var amount:=mini(capacity-rounds,reserve_rounds)
+				rounds+=amount;reserve_rounds-=amount
+		elif has_weapon and rounds<=0 and reserve_rounds>0:reload_timer=2
 	age+=dt
 	if dead_left>0:
 		dead_left-=dt
@@ -76,6 +93,7 @@ func _physics_process(dt: float) -> void:
 		else:
 			dest=Vector3(86,0,-90)
 		speed=2.8
+	if arena.royale and team>=100:dest=arena.br.bot_goal(self,dest)
 	# Fictional combat route funnels bots over the bridge, never through the river.
 	if team!=2:
 		if bridge_exit==0 and ((position.x<76 and dest.x>96) or (position.x>96 and dest.x<76)):
@@ -96,4 +114,6 @@ func _physics_process(dt: float) -> void:
 		visual.rotation.y=lerp_angle(visual.rotation.y,atan2(-direction.x,-direction.z),dt*6)
 		legs[0].rotation.x=sin(age*8)*0.5;legs[1].rotation.x=-sin(age*8)*0.5
 	position.x=clampf(position.x,-195,195);position.z=clampf(position.z,-195,195)
-	if position.y< -8:position=spawn_point;velocity=Vector3.ZERO
+	if position.y< -8:
+		if arena.royale:receive_damage(1000,-1)
+		else:position=spawn_point;velocity=Vector3.ZERO

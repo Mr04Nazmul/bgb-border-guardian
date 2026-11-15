@@ -78,3 +78,21 @@ Replaces the 2.5D player with an original, full-volume stylized 3D mesh inspired
 The GLB contains one skinned body with 17 joints and seven animation clips: idle, walk, run, jump, crouch, aim and reload. Player controls select the clips with short transitions; manual animation advancement freezes poses when paused. Crouching now shortens the actual capsule and lowers the camera, rather than squashing the character. A game prop follows the hand through a BoneAttachment3D calibrated against the aim pose. First-person hides the full body; driving and respawn retain existing behavior. Basic clips are mutually exclusive, not a layered locomotion/aim blend or motion-captured production animation.
 
 The source generator is scripts/build_rafi_rig.py (Blender 4.3.2); geometry, camouflage and animation are original MIT-licensed work. The exported GLB and required textures are committed. No official insignia were copied. The PNG reference and old picture-card GLB were not altered. Tests check mesh volume, skin binding, 17 joints, actual changing leg-bone poses, all seven clips, gameplay-driven transitions, paused animation, first/third-person visibility and prior settings/save compatibility. Actual iPhone rendering, device FPS, foot planting and final animation polish remain unverified.
+
+## Solo Battle Royale — 0.5.0
+
+Adds a playable offline solo battle-royale mode with **one player and 19 independent opposing bots**. Select Battle Royale in the main menu. Everyone starts unarmed; nearby starting supplies must be looted. Villagers are removed from the active match and restored when leaving it. The existing team match and training missions remain available.
+
+Rules and controls:
+
+- One life per participant; no respawn. Last survivor wins. Eliminated players receive a rank and can start a new match.
+- E / existing touch interact button collects nearby loot. Carry up to two weapons; Q / SWAP switches them while preserving loaded magazines. A third type replaces and drops the active weapon with its remaining rounds, preventing free-ammo swap loops.
+- Pistol (12 rounds), rifle (24) and a simplified single-hit shotgun (6), shared reserve ammo, reload and existing occlusion-aware hitscan. These are game balance values, not real weapons or a copy of another game's gun simulation.
+- H / HEAL channels a medkit for four seconds, restoring up to 50 HP. Movement, firing, swapping, reloading or damage cancels healing. Armor absorbs half incoming weapon damage until depleted; zone damage bypasses armor.
+- Seven shrinking phases with wait/shrink timers, a visible blue boundary and current/next safe circles on the minimap. Zone centers shift within an accessible road corridor; the final radius reaches zero and zone damage escalates. No arbitrary score-based winner or respawn is used.
+- Bots independently seek weapons/ammo/medical loot, engage other participants, reload, drop carried loot when eliminated and move toward safety. Scripted collision/bridge routing remains basic; it is not a production navigation-mesh AI.
+- HUD shows alive count, player kills, weapon/ammo, armor, medkits and zone timing. Enemy minimap positions are hidden in BR. Match pause freezes gameplay and zone/heal timers; restart clears inventory, loot, bots and zone state.
+
+This is an original **offline BR prototype**, not online multiplayer or PUBG/Free Fire parity. No plane/parachute sequence, 100-player networking, squads, grenades, dedicated servers, persistent ranking, anti-cheat or monetization is implemented. The fictional Sylhet-inspired map remains 400 m square. Actual iPhone/Android performance and rendering remain unverified.
+
+Tests: tests/battle_royale_check.gd exercises rules/inventory/zone/elimination/winner/reset behavior. tests/battle_simulation.gd runs an accelerated autonomous match to verify bot looting, shooting and eliminations. Existing team combat, rig, movement and web-loader regression tests remain required.

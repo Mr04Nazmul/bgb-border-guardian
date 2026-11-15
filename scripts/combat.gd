@@ -20,6 +20,9 @@ var crosshair: Label
 var rng := RandomNumberGenerator.new()
 var traces: Array[Dictionary] = []
 var controls: Array[Button] = []
+const BattleRoyale = preload("res://scripts/battle_royale.gd")
+var br: Node3D
+var royale := false
 const Actor = preload("res://scripts/combat_actor.gd")
 func setup(owner_game: Node3D,root: Control) -> void:
 	game = owner_game
@@ -45,6 +48,9 @@ func setup(owner_game: Node3D,root: Control) -> void:
 	var aim_button: Button = game.button(root,"AIM",Vector2(955,405),Vector2(100,60),func(): aim=not aim)
 	controls.assign([fire,reload_button,aim_button])
 	for control in controls:control.hide()
+	br=BattleRoyale.new()
+	add_child(br)
+	br.setup(self,root)
 	# Visible fictional divider; the river separates the two zones.
 	for z in range(-160,170,20):
 		var post: MeshInstance3D = game.box(Vector3(70,0.8,float(z)),Vector3(0.3,1.6,0.3),Color("e8dfbb"))
@@ -101,6 +107,8 @@ func start_match() -> void:
 	crosshair.show()
 	for control in controls:control.show()
 func stop_match() -> void:
+	if is_instance_valid(br):br.stop()
+	royale=false
 	active=false
 	game.playing=false
 	if is_instance_valid(shot_audio):shot_audio.stop()
@@ -120,9 +128,15 @@ func stop_match() -> void:
 	if is_instance_valid(label):label.text=""
 	if is_instance_valid(game.marker):game.marker.show()
 func reload_weapon() -> void:
-	if active and not game.paused and respawn_left<=0 and reload_left<=0 and ammo<24 and reserve>0:
+	if active and not game.paused and respawn_left<=0 and reload_left<=0 and ammo<mag_capacity() and reserve>0:
+		if royale:br.heal_left=0
 		reload_left=1.8
+func mag_capacity() -> int:
+	return int(br.weapon_stat("mag",24)) if royale else 24
 func damage_player(amount: float) -> void:
+	if royale:
+		br.damage_player(amount)
+		return
 	if not active or respawn_left>0 or not result.is_empty():return
 	game.player.health=maxf(0,game.player.health-amount)
 	if game.player.health<=0:
@@ -130,6 +144,9 @@ func damage_player(amount: float) -> void:
 		score[1]+=1
 		respawn_left=4
 		fire_held=false
+func actor_eliminated(actor: CharacterBody3D,killer: int) -> void:
+	if royale:br.eliminated(actor,killer)
+	else:add_point(killer)
 func add_point(team: int) -> void:
 	if active and result.is_empty():score[team]+=1
 func ray(from: Vector3,to: Vector3,excluded: Array[RID]) -> Dictionary:
@@ -138,15 +155,19 @@ func ray(from: Vector3,to: Vector3,excluded: Array[RID]) -> Dictionary:
 	return get_world_3d().direct_space_state.intersect_ray(query)
 func fire_player() -> bool:
 	if not active or game.paused or respawn_left>0 or reload_left>0 or shot_left>0 or game.player.driving or not result.is_empty():return false
+	if royale and br.heal_left>0:
+		br.heal_left=0
+		return false
+	if royale and br.inventory.is_empty():return false
 	if ammo<=0:
 		reload_weapon()
 		return false
 	shot_audio.play()
 	ammo-=1
-	shot_left=0.16
+	shot_left=br.weapon_stat("interval",0.16) if royale else 0.16
 	var camera: Camera3D=game.player.camera
 	var start:=camera.global_position
-	var target:=start-camera.global_basis.z*160
+	var target: Vector3=start-camera.global_basis.z*(br.weapon_stat("range",150) if royale else 160)
 	var hit:=ray(start,target,[game.player.get_rid()])
 	if not hit.is_empty():target=hit.position
 	# Muzzle ray prevents shooting through a nearby wall with the chase camera.
@@ -155,8 +176,8 @@ func fire_player() -> bool:
 	if not obstruction.is_empty():hit=obstruction;target=hit.position
 	if not hit.is_empty() and hit.collider is CharacterBody3D and hit.collider in actors:
 		var actor: CharacterBody3D=hit.collider
-		if actor.team==1:
-			actor.receive_damage(34,0)
+		if actor.team==1 or (royale and actor.team>=100):
+			actor.receive_damage(br.weapon_stat("damage",34) if royale else 34,0)
 			crosshair.modulate=Color("ffb46a")
 		elif actor.team==2:
 			game.notify(game.tr2("গ্রামের মানুষ লক্ষ্য নয়।","Civilians are not targets."))
@@ -176,11 +197,15 @@ func trace(from: Vector3,to: Vector3,color: Color) -> void:
 	add_child(mi)
 	traces.append({"node":mi,"life":0.07})
 func bot_fire(actor: CharacterBody3D,target: Node3D) -> void:
+	if royale and (not actor.has_weapon or actor.rounds<=0 or actor.reload_timer>0):return
 	var from: Vector3=actor.position+Vector3(0,1.35,0)
 	var to: Vector3=target.position+Vector3(0,1.1,0)
 	var hit:=ray(from,to,[actor.get_rid()])
 	if hit.is_empty():return
 	if hit.collider!=target and not (target==game.player and game.player.driving and hit.collider==game.jeep):return
+	if royale:
+		actor.rounds-=1
+		br.bot_shots+=1
 	actor.shot_audio.play()
 	trace(from,to,Color("ffc36c") if actor.team==0 else Color("ff8d72"))
 	if rng.randf()<0.52:
@@ -189,11 +214,11 @@ func bot_fire(actor: CharacterBody3D,target: Node3D) -> void:
 func target_for(actor: CharacterBody3D) -> Node3D:
 	var best: Node3D=null
 	var nearest:=75.0
-	if actor.team==1 and respawn_left<=0:
+	if (actor.team==1 or royale) and respawn_left<=0 and (not royale or br.player_alive):
 		var dist: float=actor.position.distance_to(game.player.position)
 		if dist<nearest:best=game.player;nearest=dist
 	for other in actors:
-		if not is_instance_valid(other) or other.team==2 or other.team==actor.team or other.dead_left>0:continue
+		if not is_instance_valid(other) or other.team==2 or other.team==actor.team or other.dead_left>0 or other.eliminated:continue
 		var dist: float=actor.position.distance_to(other.position)
 		if dist<nearest:best=other;nearest=dist
 	return best
@@ -219,7 +244,7 @@ func _process(dt: float) -> void:
 	if reload_left>0:
 		reload_left-=dt
 		if reload_left<=0:
-			var amount:=mini(24-ammo,reserve)
+			var amount:=mini(mag_capacity()-ammo,reserve)
 			ammo+=amount
 			reserve-=amount
 	if respawn_left>0:
@@ -235,6 +260,9 @@ func _process(dt: float) -> void:
 		if game.player.health<=0:damage_player(100)
 		if fire_held or (not DisplayServer.is_touchscreen_available() and Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)):fire_player()
 	game.player.camera.fov=50 if aim else 70
+	if royale:
+		br.tick(dt)
+		return
 	label.text=game.tr2("অফলাইন দলীয় ম্যাচ","OFFLINE TEAM MATCH")+"  "+str(score[0])+" : "+str(score[1])+" / 30\n"+str(int(clock))+"s  •  "+str(ammo)+" / "+str(reserve)+(game.tr2(" • রিলোড"," • Reloading") if reload_left>0 else "")
 	if respawn_left>0:label.text+="\n"+game.tr2("ফিরে আসবেন: ","Respawn: ")+str(ceili(respawn_left))+"s"
 	if score[0]>=30 or score[1]>=30 or clock<=0:finish()
