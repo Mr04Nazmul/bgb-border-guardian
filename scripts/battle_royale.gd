@@ -28,9 +28,10 @@ const WEAPONS={"pistol":{"mag":12,"damage":24,"interval":0.32,"range":80},"rifle
 const RADII=[230.0,170.0,125.0,85.0,55.0,30.0,12.0,0.0]
 func setup(owner_arena: Node3D,root: Control) -> void:
 	arena=owner_arena
-	extra_controls.append(arena.game.action_button(root,"HEAL",Vector2(810,575),Vector2(76,76),use_medkit))
-	extra_controls.append(arena.game.action_button(root,"SWAP",Vector2(810,480),Vector2(76,76),switch_weapon))
-	for b in extra_controls:b.hide()
+	extra_controls.append(arena.game.action_button(root,"HEAL",Vector2(275,535),Vector2(72,72),use_medkit))
+	extra_controls.append(arena.game.action_button(root,"SLOT1",Vector2(910,170),Vector2(130,54),select_weapon.bind(0)))
+	extra_controls.append(arena.game.action_button(root,"SLOT2",Vector2(1050,170),Vector2(130,54),select_weapon.bind(1)))
+	for b in extra_controls:b.set_meta("royale",true);b.hide()
 	var mesh:=CylinderMesh.new()
 	mesh.top_radius=1;mesh.bottom_radius=1;mesh.height=1;mesh.radial_segments=96
 	mesh.cap_top=false;mesh.cap_bottom=false
@@ -50,12 +51,12 @@ func start() -> void:
 	zone_center=Vector2(0,45);zone_radius=230;next_center=zone_center;next_radius=170
 	start_center=zone_center;start_radius=zone_radius
 	arena.ammo=0;arena.reserve=0;arena.reload_left=0;arena.shot_left=0;arena.respawn_left=0
-	arena.fire_held=false;arena.aim=false
+	arena.fire_held=false;arena.mouse_fire=false;arena.fire_sources.clear();arena.aim=false
 	var game: Node3D=arena.game
 	game.playing=true;game.paused=false;game.menu.hide();game.marker.hide()
 	if game.player.driving:game.leave_vehicle()
 	game.player.position=Vector3(-8,1,45);game.player.velocity=Vector3.ZERO;game.player.health=100
-	game.player.prone=false;game.touch.reset();game.player.look_pending=Vector2.ZERO;game.player.crouched=false;game.player.running=false;game.player.camera.make_current()
+	game.player.reset_motion();game.touch.reset();game.player.camera.make_current()
 	for actor in arena.actors:
 		actor.hide();actor.collision_layer=0;actor.collision_mask=0;actor.set_physics_process(false)
 	var spawns: Array[Vector2]=[Vector2(-150,-125),Vector2(-125,-80),Vector2(-130,-20),Vector2(-155,50),Vector2(-110,80),Vector2(-75,125),Vector2(130,30),Vector2(15,105),Vector2(45,70),Vector2(52,15),Vector2(38,-35),Vector2(25,-95),Vector2(-10,-125),Vector2(-45,-145),Vector2(135,-110),Vector2(160,80),Vector2(-50,45),Vector2(-90,20),Vector2(15,-145)]
@@ -136,12 +137,15 @@ func pickup_nearest() -> bool:
 	arena.game.notify(arena.game.tr2("নিয়েছেন: ","Picked up: ")+kind)
 	return true
 func switch_weapon() -> void:
-	if not arena.royale or arena.game.paused or inventory.size()<2 or not player_alive:return
-	magazines[weapon_id()]=arena.ammo;selected=(selected+1)%inventory.size()
+	if inventory.size()<2:return
+	select_weapon((selected+1)%inventory.size())
+func select_weapon(index: int) -> void:
+	if not arena.royale or arena.game.paused or not player_alive or index<0 or index>=inventory.size() or index==selected:return
+	magazines[weapon_id()]=arena.ammo;selected=index
 	arena.ammo=int(magazines.get(weapon_id(),0));arena.reload_left=0;heal_left=0
 func use_medkit() -> void:
 	if not arena.royale or arena.game.paused or not player_alive or medkits<=0 or heal_left>0 or arena.game.player.health>=100:return
-	heal_left=4;heal_origin=arena.game.player.position;arena.fire_held=false;arena.reload_left=0
+	heal_left=4;heal_origin=arena.game.player.position;arena.fire_held=false;arena.mouse_fire=false;arena.fire_sources.clear();arena.reload_left=0
 func damage_player(amount: float,use_armor: bool=true) -> void:
 	if not arena.active or arena.game.paused or not player_alive or not arena.result.is_empty():return
 	heal_left=0
@@ -219,7 +223,8 @@ func tick(dt: float) -> void:
 	var hint: String=""
 	if not nearby.is_empty() and arena.game.player.position.distance_to(nearby.pos)<3:hint="\n[E] LOOT: "+str(nearby.kind)
 	var weapon:=weapon_id().to_upper() if not inventory.is_empty() else "UNARMED • E TO LOOT"
-	arena.label.text="BATTLE ROYALE • "+arena.game.tr2("বেঁচে আছে: ","ALIVE: ")+str(alive_count())+"  KILLS: "+str(kills)+"\n"+weapon+"  "+str(arena.ammo)+" / "+str(arena.reserve)+"  ARMOR: "+str(int(armor))+"  MED: "+str(medkits)+"\nZONE "+str(phase+1)+" • "+("SHRINK " if shrinking else "WAIT ")+str(ceili(maxf(0,(30 if shrinking else 20)-phase_time)))+"s"+hint
+	arena.label.text="BR • ALIVE "+str(alive_count())+"  KILLS "+str(kills)+"\n"+weapon+"  "+str(arena.ammo)+" / "+str(arena.reserve)+"\nARMOR "+str(int(armor))+" • MED "+str(medkits)+"\nZONE "+str(phase+1)+" • "+("SHRINK " if shrinking else "WAIT ")+str(ceili(maxf(0,(30 if shrinking else 20)-phase_time)))+"s"
+	if not hint.is_empty():arena.game.notify(hint.replace("[E] LOOT:","USE • সংগ্রহ:"))
 	if heal_left>0:arena.label.text+="\nHEALING "+str(ceili(heal_left))+"s • Stay still"
 	if player_alive and alive_count()==1:finish(true,1)
 func finish(won: bool,rank: int) -> void:

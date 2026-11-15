@@ -73,6 +73,8 @@ jobs:
           grep 'BATTLE SIM PASS' build/royale-simulation.log
           timeout 60 godot --headless --script tests/controls_check.gd 2>&1 | tee build/controls.log
           grep 'CONTROLS PASS' build/controls.log
+          timeout 60 godot --headless --script tests/action_matrix.gd 2>&1 | tee build/action-matrix.log
+          grep 'ACTION MATRIX PASS' build/action-matrix.log
       - name: Build Android APK and verify signature
         shell: bash
         run: |

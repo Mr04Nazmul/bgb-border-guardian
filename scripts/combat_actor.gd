@@ -21,6 +21,7 @@ var animator: AnimationPlayer
 var skeleton: Skeleton3D
 var rig: Node3D
 var crouched:=false
+var body_collision: CollisionShape3D
 var alert_left:=0.0
 var last_seen:=Vector3.ZERO
 var facing_target:=Vector3.ZERO
@@ -37,7 +38,7 @@ func _ready() -> void:
 	shot_audio.max_distance=70
 	add_child(shot_audio)
 	var c:=CollisionShape3D.new();var shape:=CapsuleShape3D.new()
-	shape.radius=0.32;shape.height=1.75;c.shape=shape;c.position.y=0.9;add_child(c)
+	shape.radius=0.32;shape.height=1.75;c.shape=shape;c.position.y=0.9;add_child(c);body_collision=c
 	visual=Node3D.new();add_child(visual)
 	rig=preload("res://assets/characters/rafi_rig/rafi_rig.glb").instantiate()
 	rig.rotation.y=PI;visual.add_child(rig)
@@ -95,6 +96,8 @@ func _physics_process(dt: float) -> void:
 	age+=dt
 	alert_left=maxf(0,alert_left-dt)
 	crouched=team!=2 and alert_left>0 and health<60
+	body_collision.shape.height=1.15 if crouched else 1.75
+	body_collision.position.y=.6 if crouched else .9
 	facing_target=Vector3.ZERO
 	if dead_left>0:
 		dead_left-=dt

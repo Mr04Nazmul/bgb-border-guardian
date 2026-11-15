@@ -97,15 +97,16 @@ for name,head,tail,parent in bones:
  if parent:bone.parent=rig.data.edit_bones[parent]
 bpy.ops.object.mode_set(mode='OBJECT');mod=mesh.modifiers.new('Rafi skeleton','ARMATURE');mod.object=rig;mesh.parent=rig
 rig.animation_data_create();scene=bpy.context.scene;scene.render.fps=30
-clips=[('idle',60),('walk',30),('run',20),('jump',30),('crouch',40),('aim',30),('reload',45),('armed_walk',30),('armed_run',20),('crouch_walk',40),('prone',40),('crawl',50)]
+clips=[('idle',60),('walk',30),('run',20),('jump',30),('crouch',40),('aim',30),('reload',45),('armed_walk',30),('armed_run',20),('crouch_walk',40),('prone',40),('crawl',50),('crawl_back',50),('crouch_back',40),('walk_back',30),('strafe_left',30),('strafe_right',30),('crouch_reload',45),('prone_reload',45)]
 for clip,length in clips:
  action=bpy.data.actions.new(clip);action.use_fake_user=True;rig.animation_data.action=action
  for frame in range(0,length+1,2):
   p=frame/length;wave=math.sin(p*2*math.pi)
+  if clip in ['walk_back','crouch_back','crawl_back']:wave=-wave
   for bone in rig.pose.bones:bone.rotation_mode='XYZ';bone.rotation_euler=(0,0,0);bone.location=(0,0,0)
   rig.pose.bones['chest'].rotation_euler.x=.025*wave
-  if clip in ['walk','run','armed_walk','armed_run','crouch_walk']:
-   amp=.5 if clip in ['walk','armed_walk'] else (.25 if clip=='crouch_walk' else .85)
+  if clip in ['walk','run','armed_walk','armed_run','crouch_walk','crouch_back','walk_back','strafe_left','strafe_right']:
+   amp=.85 if clip in ['run','armed_run'] else (.25 if clip.startswith('crouch') else .5)
    for side,sign in [('L',1),('R',-1)]:
     v=wave*sign
     rig.pose.bones['thigh.'+side].rotation_euler.x=v*amp
@@ -113,29 +114,34 @@ for clip,length in clips:
     rig.pose.bones['upper_arm.'+side].rotation_euler.x=-v*amp*.8
     rig.pose.bones['forearm.'+side].rotation_euler.x=.25
    rig.pose.bones['root'].location.y=abs(wave)*(.025 if clip=='walk' else .045)
+  if clip in ['strafe_left','strafe_right']:
+   for side,sign in [('L',1),('R',-1)]:
+    rig.pose.bones['thigh.'+side].rotation_euler.x=.1*wave*sign
+    rig.pose.bones['thigh.'+side].rotation_euler.z=.28*wave*(1 if clip=='strafe_left' else -1)
+    rig.pose.bones['shin.'+side].rotation_euler.x=max(0,-wave*sign)*.4
   if clip=='jump':
    tuck=math.sin(p*math.pi)
    for side in ['L','R']:
     rig.pose.bones['thigh.'+side].rotation_euler.x=-.55*tuck;rig.pose.bones['shin.'+side].rotation_euler.x=1.0*tuck;rig.pose.bones['upper_arm.'+side].rotation_euler.x=-.55*tuck
-  if clip in ['crouch','crouch_walk']:
+  if clip in ['crouch','crouch_walk','crouch_back','crouch_reload']:
    rig.pose.bones['root'].location.y=-.28
    rig.pose.bones['chest'].rotation_euler.x=.32
    for side in ['L','R']:rig.pose.bones['thigh.'+side].rotation_euler.x=-.8;rig.pose.bones['shin.'+side].rotation_euler.x=1.25
-  if clip in ['aim','reload','armed_walk','armed_run','crouch','crouch_walk','prone','crawl']:
+  if clip in ['aim','reload','armed_walk','armed_run','crouch','crouch_walk','crouch_back','crouch_reload','walk_back','strafe_left','strafe_right','prone','crawl','crawl_back','prone_reload']:
    rig.pose.bones['upper_arm.R'].rotation_euler.x=-1.15;rig.pose.bones['forearm.R'].rotation_euler.x=.45
    rig.pose.bones['upper_arm.L'].rotation_euler.x=-1.05;rig.pose.bones['forearm.L'].rotation_euler.x=.7
-   if clip=='reload':rig.pose.bones['forearm.L'].rotation_euler.x=.7+math.sin(p*math.pi)*.8
-  if clip in ['prone','crawl']:
+   if clip.endswith('reload'):rig.pose.bones['forearm.L'].rotation_euler.x=.7+math.sin(p*math.pi)*.8
+  if clip in ['prone','crawl','crawl_back','prone_reload']:
    rig.pose.bones['root'].rotation_euler.x=math.pi/2
    rig.pose.bones['root'].location.y=.28
    rig.pose.bones['root'].location.z=-.85
    rig.pose.bones['neck'].rotation_euler.x=.45
    for side,sign in [('L',1),('R',-1)]:
     rig.pose.bones['thigh.'+side].rotation_euler.z=.13*sign
-    rig.pose.bones['shin.'+side].rotation_euler.x=.1+(max(0,wave*sign)*.3 if clip=='crawl' else 0)
-    rig.pose.bones['upper_arm.'+side].rotation_euler.x=-1.3+(wave*sign*.14 if clip=='crawl' else 0)
+    rig.pose.bones['shin.'+side].rotation_euler.x=.1+(max(0,wave*sign)*.3 if clip in ['crawl','crawl_back'] else 0)
+    rig.pose.bones['upper_arm.'+side].rotation_euler.x=-1.3+(wave*sign*.14 if clip in ['crawl','crawl_back'] else 0)
     rig.pose.bones['forearm.'+side].rotation_euler.x=.9
-  if clip in ['aim','reload','armed_walk','armed_run','crouch','crouch_walk','prone','crawl']:
+  if clip in ['aim','reload','armed_walk','armed_run','crouch','crouch_walk','crouch_back','crouch_reload','walk_back','strafe_left','strafe_right','prone','crawl','crawl_back','prone_reload']:
    # Bake two-bone arm posing to grip locations, retaining leg locomotion.
    bpy.context.view_layer.update()
    chest=rig.pose.bones['chest'];delta=chest.matrix @ chest.bone.matrix_local.inverted()
@@ -143,8 +149,8 @@ for clip,length in clips:
     upper=rig.pose.bones['upper_arm.'+side];fore=rig.pose.bones['forearm.'+side];hand=rig.pose.bones['hand.'+side]
     start=Vector((sign*.27,0,1.39))
     target=Vector((-.04,-.43 if side=='L' else -.12,1.35))
-    if clip in ['prone','crawl']:target=Vector((sign*.10,-.06,1.88))
-    if clip=='reload' and side=='L':target.z-=.16*math.sin(p*math.pi)
+    if clip in ['prone','crawl','crawl_back','prone_reload']:target=Vector((sign*.10,-.06,1.88))
+    if clip.endswith('reload') and side=='L':target.z-=.16*math.sin(p*math.pi)
     offset=target-start;distance=min(offset.length,upper.length+fore.length-.005);direction=offset.normalized()
     along=(upper.length**2-fore.length**2+distance**2)/(2*distance)
     sideways=Vector((sign,0,-.3));sideways=(sideways-direction*sideways.dot(direction)).normalized()

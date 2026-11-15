@@ -9,10 +9,10 @@ func run() -> void:
  assert(not touch.can_look(Vector2(1200,600)))
  assert(touch.can_look(Vector2(1100,410)),"Fire drag must permit aim")
  touch.show()
- var press:=InputEventScreenTouch.new();press.index=7;press.position=Vector2(130,580);press.pressed=true;touch._input(press)
- var drag:=InputEventScreenDrag.new();drag.index=7;drag.position=Vector2(133,581);touch._input(drag)
+ var press:=InputEventScreenTouch.new();press.index=7;press.position=Vector2(155,555);press.pressed=true;touch._input(press)
+ var drag:=InputEventScreenDrag.new();drag.index=7;drag.position=Vector2(158,556);touch._input(drag)
  assert(touch.move_axis==Vector2.ZERO,"Joystick deadzone")
- drag.position=Vector2(130,515);touch._input(drag);assert(touch.move_axis.y<-.99)
+ drag.position=Vector2(155,483);touch._input(drag);assert(touch.move_axis.y<-.99)
  touch.reset();assert(touch.move_id==-1 and touch.move_axis==Vector2.ZERO)
  var y: float=p.yaw
  p.add_look(Vector2(40,0));assert(p.yaw==y)
@@ -41,7 +41,7 @@ func run() -> void:
   if actor.team==1:enemies+=1
   assert(actor.animator.has_animation("armed_walk"))
  touch.show()
- press.index=1;press.position=Vector2(130,580);press.pressed=true;touch._input(press)
+ press.index=1;press.position=Vector2(155,555);press.pressed=true;touch._input(press)
  press.index=2;press.position=Vector2(1100,410);touch._input(press)
  assert(touch.move_id==1 and touch.look_id==2 and game.combat.fire_held,"Independent move/fire fingers")
  drag.index=2;drag.relative=Vector2(20,0);touch._input(drag)

@@ -172,13 +172,15 @@ func make_ui() -> void:
 	theme.default_font_size = 21
 	root.theme = theme
 	objective = Label.new()
-	objective.position = Vector2(28,22)
+	objective.position = Vector2(250,26)
+	objective.add_theme_font_size_override("font_size",17)
 	root.add_child(objective)
 	stats = Label.new()
-	stats.position = Vector2(28,95)
+	stats.position = Vector2(455,680)
+	stats.add_theme_font_size_override("font_size",14)
 	root.add_child(stats)
 	message = Label.new()
-	message.position = Vector2(320,600)
+	message.position = Vector2(320,610)
 	message.size = Vector2(600,70)
 	message.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	root.add_child(message)
@@ -187,14 +189,14 @@ func make_ui() -> void:
 	touch.look.connect(func(delta: Vector2):
 		if playing and not paused:player.add_look(delta))
 	action_button(root,"II",Vector2(1185,24),Vector2(60,50),toggle_pause)
-	action_button(root,"JUMP",Vector2(1165,480),Vector2(74,74),func(): player.jump_requested = true)
-	action_button(root,"CROUCH",Vector2(1080,575),Vector2(76,76),player.toggle_crouch)
-	action_button(root,"PRONE",Vector2(1165,575),Vector2(76,76),player.toggle_prone)
-	action_button(root,"SPRINT",Vector2(92,402),Vector2(80,66),func(): player.running = not player.running)
-	action_button(root,"USE",Vector2(990,575),Vector2(76,76),interact)
-	action_button(root,"VIEW",Vector2(24,310),Vector2(68,56),func(): player.first_person = not player.first_person)
+	action_button(root,"JUMP",Vector2(1180,480),Vector2(76,76),func(): player.jump_requested = true)
+	action_button(root,"CROUCH",Vector2(1155,580),Vector2(76,76),player.toggle_crouch)
+	action_button(root,"PRONE",Vector2(1060,580),Vector2(76,76),player.toggle_prone)
+	action_button(root,"SPRINT",Vector2(118,400),Vector2(74,74),func(): player.running = not player.running)
+	action_button(root,"USE",Vector2(940,470),Vector2(76,76),interact)
+	action_button(root,"VIEW",Vector2(245,200),Vector2(58,58),func(): player.first_person = not player.first_person)
 	minimap = Control.new()
-	minimap.position = Vector2(1020,90)
+	minimap.position = Vector2(24,24)
 	minimap.size = Vector2(200,200)
 	minimap.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	minimap.draw.connect(draw_minimap)
@@ -202,6 +204,7 @@ func make_ui() -> void:
 	combat = Combat.new()
 	add_child(combat)
 	combat.setup(self,root)
+	var shooter_hud:=preload("res://scripts/shooter_hud.gd").new();shooter_hud.game=self;root.add_child(shooter_hud)
 	menu = PanelContainer.new()
 	menu.position = Vector2(370,50)
 	menu.size = Vector2(540,620)
@@ -226,13 +229,11 @@ func button(parent: Node,text: String,pos: Vector2,size: Vector2,action: Callabl
 	parent.add_child(b)
 	return b
 func action_button(parent: Node,text: String,pos: Vector2,dimensions: Vector2,action: Callable) -> Button:
-	var b:=button(parent,text,pos,dimensions,action)
+	var b:=preload("res://scripts/action_button.gd").new()
+	b.kind=text;b.position=pos;b.size=dimensions;b.custom_minimum_size=dimensions;b.tooltip_text=text
+	b.pressed.connect(action);parent.add_child(b);b.set_meta("action",text)
 	b.focus_mode=Control.FOCUS_NONE
-	b.add_theme_font_size_override("font_size",14)
-	for state in ["normal","hover","pressed"]:
-		var style:=StyleBoxFlat.new();style.bg_color=Color(0.06,0.09,0.08,0.38 if state=="normal" else 0.65)
-		style.border_color=Color(0.9,0.95,0.85,0.65);style.set_border_width_all(2);style.set_corner_radius_all(40)
-		b.add_theme_stylebox_override(state,style)
+	for state in ["normal","hover","pressed","focus"]:b.add_theme_stylebox_override(state,StyleBoxEmpty.new())
 	touch.reserved.append(Rect2(pos,dimensions))
 	touch.actions.append({"button":b,"area":Rect2(pos,dimensions)})
 	return b
@@ -249,7 +250,7 @@ func item(text: String,action: Callable) -> Button:
 	return button(menu_box,text,Vector2.ZERO,Vector2(470,45),action)
 func show_menu() -> void:
 	paused = true
-	if is_instance_valid(touch):touch.reset();player.running=false;player.look_pending=Vector2.ZERO;combat.fire_held=false
+	if is_instance_valid(touch):touch.reset();player.running=false;player.look_pending=Vector2.ZERO;combat.fire_held=false;combat.mouse_fire=false;combat.fire_sources.clear()
 	clear_menu("BORDER GUARDIAN\nBANGLADESH")
 	var sub := Label.new()
 	sub.text = tr2("কাল্পনিক উদ্ধার ও প্রশিক্ষণ অভিযান\nকোনো সরকারি সংস্থার অনুমোদিত নয়","Fictional rescue & training simulator\nNot affiliated with any government agency")
@@ -295,9 +296,10 @@ func settings_menu() -> void:
 			settings_menu())
 	for ads in [false,true]:
 		var row:=HBoxContainer.new();menu_box.add_child(row)
-		var caption:=Label.new();caption.text="ADS" if ads else "Camera";caption.custom_minimum_size.x=110;row.add_child(caption)
+		var caption:=Label.new();caption.text=("ADS " if ads else "Camera ")+str(roundi((player.ads_sensitivity if ads else player.sensitivity)*100))+"%";caption.custom_minimum_size.x=110;row.add_child(caption)
 		var slider:=HSlider.new();slider.min_value=0.2;slider.max_value=1.5;slider.step=0.05;slider.value=player.ads_sensitivity if ads else player.sensitivity;slider.custom_minimum_size=Vector2(310,32);row.add_child(slider)
 		slider.value_changed.connect(func(value: float):
+			caption.text=("ADS " if ads else "Camera ")+str(roundi(value*100))+"%"
 			if ads:player.ads_sensitivity=value
 			else:player.sensitivity=value
 			save_controls())
@@ -319,7 +321,8 @@ func start_mission(index: int) -> void:
 	goals.assign(routes[mission])
 	player.position = Vector3(0,1,8)
 	player.health = 100
-	player.stamina = 100
+	player.reset_motion()
+	touch.reset()
 	if player.driving:
 		leave_vehicle()
 	jeep.position = Vector3(9,1,9)
@@ -371,7 +374,10 @@ func update_marker() -> void:
 func notify(text: String) -> void:
 	message.text = text
 	notice_time = 5
+func _input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.button_index==MOUSE_BUTTON_LEFT and not event.pressed and is_instance_valid(combat):combat.mouse_fire=false
 func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.button_index==MOUSE_BUTTON_LEFT and playing and not paused:combat.mouse_fire=event.pressed
 	if event is InputEventKey and event.pressed and not event.echo:
 		match event.physical_keycode:
 			KEY_ESCAPE: toggle_pause()
@@ -387,6 +393,21 @@ func _unhandled_input(event: InputEvent) -> void:
 		player.add_look(event.relative)
 func _process(dt: float) -> void:
 	Input.emulate_mouse_from_touch=not playing or paused
+	for action in touch.actions:
+		var b: Button=action.button
+		b.visible=playing and not paused and (not b.has_meta("combat") or combat.active) and (not b.has_meta("royale") or combat.royale)
+		b.disabled=combat.active and combat.respawn_left>0 and b.kind!="II"
+		b.modulate.a=.4 if b.disabled else 1.0
+		b.set_meta("selected",(b.kind=="CROUCH" and player.crouched) or (b.kind=="PRONE" and player.prone) or (b.kind=="ADS" and combat.aim) or (b.kind=="SPRINT" and player.running))
+		if b.kind.begins_with("SLOT"):
+			var slot:=0 if b.kind=="SLOT1" else 1
+			b.set_meta("selected",slot==combat.br.selected and slot<combat.br.inventory.size())
+			b.set_meta("weapon_name",combat.br.inventory[slot].to_upper() if slot<combat.br.inventory.size() else "EMPTY")
+		b.queue_redraw()
+	minimap.visible=playing and not paused
+	objective.visible=playing and not paused
+	stats.visible=playing and not paused
+	message.visible=playing and not paused
 	player.set_physics_process(playing and not paused)
 	jeep.set_physics_process(playing and not paused)
 	touch.visible = playing and not paused
@@ -454,7 +475,7 @@ func advance_objective() -> void:
 		notify(tr2("লক্ষ্য সম্পন্ন! পরের চিহ্নে যান।","Objective complete! Follow the next marker."))
 func fail_mission() -> void:
 	paused = true
-	if is_instance_valid(touch):touch.reset();player.running=false;player.look_pending=Vector2.ZERO;combat.fire_held=false
+	if is_instance_valid(touch):touch.reset();player.running=false;player.look_pending=Vector2.ZERO;combat.fire_held=false;combat.mouse_fire=false;combat.fire_sources.clear()
 	clear_menu(tr2("মিশন ব্যর্থ • স্বাস্থ্য / সময় শেষ","Mission failed • health / time exhausted"))
 	item(tr2("আবার চেষ্টা","Retry"),func(): start_mission(mission))
 	item(tr2("প্রধান মেনু","Main menu"),show_menu)
@@ -522,9 +543,12 @@ func load_game(continue_game: bool) -> void:
 		update_marker()
 		resume()
 func _notification(what: int) -> void:
-	if what == NOTIFICATION_APPLICATION_PAUSED and is_instance_valid(player):
-		save_game()
-		paused = true
+	if what in [NOTIFICATION_APPLICATION_PAUSED,NOTIFICATION_APPLICATION_FOCUS_OUT] and is_instance_valid(player) and playing:
+		background_pause.call_deferred()
+func background_pause() -> void:
+	if not playing:return
+	save_game()
+	show_menu()
 func smoke_test() -> void:
 	start_mission(0)
 	assert(playing and goals.size()==3)
@@ -573,7 +597,7 @@ func physics_test() -> void:
 		await get_tree().physics_frame
 	assert(player.is_on_floor())
 	player.running = true
-	touch.move_axis = Vector2(1,0)
+	touch.move_axis = Vector2(0,-1)
 	for i in 25:
 		await get_tree().physics_frame
 	assert(player.stamina<100, "Running must consume stamina")
@@ -602,12 +626,12 @@ func physics_test() -> void:
 	# Multi-touch joystick press, drag and release.
 	var press := InputEventScreenTouch.new()
 	press.index = 4
-	press.position = Vector2(100,600)
+	press.position = Vector2(155,555)
 	press.pressed = true
 	touch._input(press)
 	var drag := InputEventScreenDrag.new()
 	drag.index = 4
-	drag.position = Vector2(100,535)
+	drag.position = Vector2(155,483)
 	touch._input(drag)
 	assert(touch.move_axis.y< -0.9)
 	press.pressed = false

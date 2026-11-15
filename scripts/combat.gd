@@ -4,6 +4,10 @@ var game: Node3D
 var actors: Array[CharacterBody3D] = []
 var active := false
 var fire_held := false
+var mouse_fire:=false
+var fire_sources: Dictionary={}
+var feedback_left:=0.0
+var blocked_left:=0.0
 var aim := false
 var ammo := 24
 var reserve := 144
@@ -33,20 +37,24 @@ func setup(owner_game: Node3D,root: Control) -> void:
 	add_child(shot_audio)
 	rng.seed = 201
 	label = Label.new()
-	label.position = Vector2(315,18)
+	label.position = Vector2(905,24)
+	label.add_theme_font_size_override("font_size",16)
 	root.add_child(label)
 	crosshair = Label.new()
-	crosshair.text = "+"
+	crosshair.text = ""
 	crosshair.add_theme_font_size_override("font_size",32)
 	crosshair.position = Vector2(630,337)
 	root.add_child(crosshair)
 	crosshair.hide()
-	var fire: Button = game.action_button(root,"FIRE",Vector2(1070,375),Vector2(90,90),func(): pass)
-	fire.button_down.connect(func(): fire_held=true)
-	fire.button_up.connect(func(): fire_held=false)
-	var reload_button: Button = game.action_button(root,"RELOAD",Vector2(900,575),Vector2(76,76),reload_weapon)
-	var aim_button: Button = game.action_button(root,"ADS",Vector2(1170,375),Vector2(74,74),func(): aim=not aim)
-	controls.assign([fire,reload_button,aim_button])
+	var fire: Button = game.action_button(root,"FIRE",Vector2(1050,385),Vector2(118,118),func(): pass)
+	fire.button_down.connect(func(): set_trigger("right",true))
+	fire.button_up.connect(func(): set_trigger("right",false))
+	var reload_button: Button = game.action_button(root,"RELOAD",Vector2(1180,260),Vector2(70,70),reload_weapon)
+	var aim_button: Button = game.action_button(root,"ADS",Vector2(1185,350),Vector2(70,70),func(): aim=not aim)
+	var left_fire: Button=game.action_button(root,"FIRE_L",Vector2(250,325),Vector2(76,76),func():pass)
+	left_fire.button_down.connect(func():set_trigger("left",true));left_fire.button_up.connect(func():set_trigger("left",false))
+	controls.assign([fire,reload_button,aim_button,left_fire])
+	for b in controls:b.set_meta("combat",true)
 	for control in controls:control.hide()
 	br=BattleRoyale.new()
 	add_child(br)
@@ -86,14 +94,14 @@ func start_match() -> void:
 	reload_left=0
 	respawn_left=0
 	shot_left=0
-	fire_held=false
+	fire_held=false;mouse_fire=false;fire_sources.clear()
 	game.playing=true
 	game.paused=false
 	game.menu.hide()
 	game.marker.hide()
 	game.player.position=Vector3(35,1,-90)
 	game.player.health=100
-	game.player.prone=false;game.player.crouched=false;game.touch.reset()
+	game.player.reset_motion();game.touch.reset()
 	game.player.velocity=Vector3.ZERO
 	if game.player.driving:
 		game.leave_vehicle()
@@ -113,7 +121,7 @@ func stop_match() -> void:
 	active=false
 	game.playing=false
 	if is_instance_valid(shot_audio):shot_audio.stop()
-	fire_held=false
+	fire_held=false;mouse_fire=false;fire_sources.clear()
 	aim=false
 	if is_instance_valid(game.player):game.player.camera.fov=70
 	for control in controls:control.hide()
@@ -144,7 +152,7 @@ func damage_player(amount: float) -> void:
 		if game.player.driving:game.leave_vehicle()
 		score[1]+=1
 		respawn_left=4
-		fire_held=false
+		fire_held=false;mouse_fire=false;fire_sources.clear()
 func actor_eliminated(actor: CharacterBody3D,killer: int) -> void:
 	if royale:br.eliminated(actor,killer)
 	else:add_point(killer)
@@ -163,6 +171,7 @@ func fire_player() -> bool:
 	if ammo<=0:
 		reload_weapon()
 		return false
+	game.player.kick_weapon()
 	shot_audio.play()
 	ammo-=1
 	shot_left=br.weapon_stat("interval",0.16) if royale else 0.16
@@ -172,13 +181,19 @@ func fire_player() -> bool:
 	var hit:=ray(start,target,[game.player.get_rid()])
 	if not hit.is_empty():target=hit.position
 	# Muzzle ray prevents shooting through a nearby wall with the chase camera.
-	var muzzle: Vector3=game.player.position+Vector3(0,0.42 if game.player.prone else (0.95 if game.player.crouched else 1.35),0)
-	var obstruction:=ray(muzzle,target,[game.player.get_rid()])
+	var body_origin: Vector3=game.player.position+Vector3(0,0.42 if game.player.prone else (0.95 if game.player.crouched else 1.35),0)
+	var muzzle_node: Node3D=game.player.weapon.find_child("Muzzle",true,false)
+	var muzzle: Vector3=muzzle_node.global_position if is_instance_valid(muzzle_node) else body_origin
+	# Block a barrel that protrudes through nearby geometry before tracing toward the reticle.
+	var obstruction:=ray(body_origin,muzzle,[game.player.get_rid()])
+	if obstruction.is_empty():obstruction=ray(muzzle,target,[game.player.get_rid()])
 	if not obstruction.is_empty():hit=obstruction;target=hit.position
+	if not obstruction.is_empty() and not obstruction.collider is CharacterBody3D:blocked_left=.2
 	if not hit.is_empty() and hit.collider is CharacterBody3D and hit.collider in actors:
 		var actor: CharacterBody3D=hit.collider
 		if actor.team==1 or (royale and actor.team>=100):
-			actor.receive_damage(br.weapon_stat("damage",34) if royale else 34,0)
+			var multiplier:=2.0 if hit.position.y-actor.global_position.y>(1.05 if actor.crouched else 1.48) else 1.0
+			actor.receive_damage((br.weapon_stat("damage",34) if royale else 34)*multiplier,0)
 			crosshair.modulate=Color("ffb46a")
 		elif actor.team==2:
 			game.notify(game.tr2("গ্রামের মানুষ লক্ষ্য নয়।","Civilians are not targets."))
@@ -227,7 +242,7 @@ func finish() -> void:
 	if not result.is_empty():return
 	result=game.tr2("জয়!","Victory!") if score[0]>score[1] else (game.tr2("পরাজয়","Defeat") if score[0]<score[1] else game.tr2("ড্র","Draw"))
 	game.paused=true
-	fire_held=false
+	fire_held=false;mouse_fire=false;fire_sources.clear()
 	game.clear_menu(result+"  "+str(score[0])+" — "+str(score[1]))
 	game.item(game.tr2("আবার ম্যাচ খেলুন","Play again"),start_match)
 	game.item(game.tr2("প্রধান মেনু","Main menu"),func():stop_match();game.show_menu())
@@ -241,6 +256,7 @@ func _process(dt: float) -> void:
 	if not active:return
 	clock=maxf(0,clock-dt)
 	shot_left=maxf(0,shot_left-dt)
+	blocked_left=maxf(0,blocked_left-dt)
 	crosshair.modulate=crosshair.modulate.lerp(Color.WHITE,dt*8)
 	if reload_left>0:
 		reload_left-=dt
@@ -254,21 +270,27 @@ func _process(dt: float) -> void:
 			game.player.position=Vector3(35,1,-90)
 			game.player.velocity=Vector3.ZERO
 			game.player.health=100
+			game.player.reset_motion()
 			ammo=24
 			reserve=maxi(reserve,72)
 			game.player.yaw= -PI/2
 	else:
 		if game.player.health<=0:damage_player(100)
-		if fire_held or (not DisplayServer.is_touchscreen_available() and Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)):fire_player()
+		if fire_held or mouse_fire:fire_player()
 	game.player.camera.fov=lerpf(game.player.camera.fov,50.0 if aim else 70.0,1.0-exp(-14*dt))
 	if royale:
 		br.tick(dt)
 		return
-	label.text=game.tr2("বাংলাদেশ দল : ভারত দল • কাল্পনিক 10v10","Bangladesh : India • Fictional 10v10")+"  "+str(score[0])+" : "+str(score[1])+" / 30\n"+str(int(clock))+"s  •  "+str(ammo)+" / "+str(reserve)+(game.tr2(" • রিলোড"," • Reloading") if reload_left>0 else "")
+	label.text="10v10 • "+str(score[0])+" : "+str(score[1])+" / 30 • "+str(int(clock))+"s\nRIFLE  "+str(ammo)+" / "+str(reserve)+(game.tr2(" • রিলোড"," • Reloading") if reload_left>0 else "")
 	if respawn_left>0:label.text+="\n"+game.tr2("ফিরে আসবেন: ","Respawn: ")+str(ceili(respawn_left))+"s"
 	if score[0]>=30 or score[1]>=30 or clock<=0:finish()
 
 func _notification(what: int) -> void:
 	if what==NOTIFICATION_APPLICATION_FOCUS_OUT:
-		fire_held=false
+		fire_held=false;mouse_fire=false;fire_sources.clear()
 		if is_instance_valid(game):game.touch.reset();game.player.look_pending=Vector2.ZERO
+
+func set_trigger(source: String,pressed: bool) -> void:
+	if pressed:fire_sources[source]=true
+	else:fire_sources.erase(source)
+	fire_held=not fire_sources.is_empty()

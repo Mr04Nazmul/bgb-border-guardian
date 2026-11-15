@@ -107,3 +107,13 @@ Tests: tests/battle_royale_check.gd exercises rules/inventory/zone/elimination/w
 - Focus loss clears held fire, movement and pending look. Existing solo BR, team combat, mission and pause rules remain.
 
 Validation: Godot headless controls/multitouch, stances, rig, team combat and BR rules; autonomous bot simulation; Web export and loader/WASM checks. iPhone touch feel, real GPU appearance and on-device FPS still need device playtesting. No online multiplayer or actual cross-country military simulation is claimed.
+
+## v0.7.0 — shooter input and action combinations
+
+Graphics and map geometry are retained. The gameplay HUD now has original silhouette controls, a top-left map, top-right ammo/status, bottom-center HP/stamina, large right fire and a second left fire button. A fixed joystick and independently tracked fingers support movement + ADS + firing; releasing one fire source preserves the other. Buttons show pressed/selected feedback and disappear while paused. Desktop GUI clicks no longer count as world gunfire.
+
+A center-screen reticle replaces the previously offset plus. Physics fire traces originate at the visible muzzle with a body-to-barrel obstruction check. Head hits deal double damage; stance-dependent recoil is small and can be countered with look input. No ballistic realism or copied proprietary mechanics are claimed.
+
+Stance clearance uses capsule queries; prone adds a full-length horizontal collision capsule. Jump first stands from a lowered stance, and low ceilings prevent standing. Armed movement faces the camera with distinct backward/left/right gait; sprint is forward-only and blocked during ADS/fire. The rig now has 19 clips including crouched/prone reload. These remain prototype animation assets, not exact PUBG/Free Fire animation reproduction.
+
+`tests/action_matrix.gd` exercises non-overlapping HUD hit regions, concurrent movement/ADS/dual fire, crouch/prone fire, prone reload, stand/jump, directional gait, low ceiling and pause cleanup, plus prone reticle hits/head-hit damage. Existing combat, BR and mission/rig regressions are retained. Phone-side input feel and sustained FPS are still unverified.
