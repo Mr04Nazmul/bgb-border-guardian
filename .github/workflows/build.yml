@@ -63,6 +63,8 @@ jobs:
           grep 'PHYSICS PASS' build/physics.log
           timeout 60 godot --headless --script tests/terrain_check.gd 2>&1 | tee build/terrain.log
           grep 'TERRAIN PASS' build/terrain.log
+          timeout 60 godot --headless --script tests/combat_check.gd 2>&1 | tee build/combat.log
+          grep 'COMBAT PASS' build/combat.log
       - name: Build Android APK and verify signature
         shell: bash
         run: |

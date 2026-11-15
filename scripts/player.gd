@@ -10,6 +10,7 @@ var health := 100.0
 var first_person := false
 var driving := false
 var phase := 0.0
+var weapon: Node3D
 var visual: Node3D
 var pivot: Node3D
 var arm: SpringArm3D
@@ -39,6 +40,11 @@ func _ready() -> void:
 		legs.append(leg)
 	for x in [-0.45,0.45]:
 		part(Vector3(x,1.15,0),Vector3(0.2,0.65,0.22),Color("50613c"),visual)
+	weapon=Node3D.new()
+	visual.add_child(weapon)
+	part(Vector3(0.23,1.2,-0.38),Vector3(0.13,0.14,0.8),Color("30352e"),weapon)
+	part(Vector3(0.23,1.08,-0.3),Vector3(0.1,0.2,0.12),Color("282d28"),weapon)
+	weapon.hide()
 	pivot = Node3D.new()
 	pivot.position.y = 1.5
 	add_child(pivot)
@@ -63,7 +69,11 @@ func part(pos: Vector3, size: Vector3, color: Color, parent: Node3D) -> void:
 	parent.add_child(m)
 
 func _physics_process(dt: float) -> void:
+	weapon.visible = is_instance_valid(get_parent().combat) and get_parent().combat.active
 	if get_parent().paused or not get_parent().playing:
+		return
+	if is_instance_valid(get_parent().combat) and get_parent().combat.active and get_parent().combat.respawn_left>0:
+		velocity = Vector3.ZERO
 		return
 	if driving:
 		return

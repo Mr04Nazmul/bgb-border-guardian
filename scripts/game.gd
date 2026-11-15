@@ -1,4 +1,6 @@
 extends Node3D
+const Combat = preload("res://scripts/combat.gd")
+var combat: Node3D
 const Player = preload("res://scripts/player.gd")
 const Jeep = preload("res://scripts/jeep.gd")
 const Sylhet = preload("res://scripts/sylhet.gd")
@@ -199,6 +201,9 @@ func make_ui() -> void:
 	minimap.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	minimap.draw.connect(draw_minimap)
 	root.add_child(minimap)
+	combat = Combat.new()
+	add_child(combat)
+	combat.setup(self,root)
 	menu = PanelContainer.new()
 	menu.position = Vector2(370,50)
 	menu.size = Vector2(540,620)
@@ -239,9 +244,12 @@ func show_menu() -> void:
 	var sub := Label.new()
 	sub.text = tr2("কাল্পনিক উদ্ধার ও প্রশিক্ষণ অভিযান\nকোনো সরকারি সংস্থার অনুমোদিত নয়","Fictional rescue & training simulator\nNot affiliated with any government agency")
 	menu_box.add_child(sub)
+	item(tr2("দলীয় যুদ্ধ • Offline Bots","Team Match • Offline Bots"),combat.start_match)
 	item(tr2("খেলা শুরু","Start Game"),func(): start_mission(0))
 	item(tr2("চালিয়ে যান","Continue"),func():
-		if FileAccess.file_exists("user://save.json") or OS.has_feature("web"):
+		if combat.active:
+			resume()
+		elif FileAccess.file_exists("user://save.json") or OS.has_feature("web"):
 			load_game(true)
 		else:
 			start_mission(0))
@@ -285,6 +293,7 @@ func apply_quality() -> void:
 	sun.shadow_enabled = quality>0
 	get_viewport().scaling_3d_scale = [0.7,0.85,1.0][quality]
 func start_mission(index: int) -> void:
+	if is_instance_valid(combat): combat.stop_match()
 	if index<0 or index>=4 or index>unlocked:
 		return
 	mission = index
@@ -353,6 +362,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			KEY_C: player.crouched = not player.crouched
 			KEY_E: interact()
 			KEY_V: player.first_person = not player.first_person
+			KEY_R: combat.reload_weapon()
 	if event is InputEventMouseMotion and Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT) and not paused:
 		player.yaw -= event.relative.x*0.004
 		player.pitch = clampf(player.pitch-event.relative.y*0.004,-1.1,0.5)
@@ -376,6 +386,13 @@ func _process(dt: float) -> void:
 	# River is hazardous outside the bridge; prototype has no swimming yet.
 	if pos.x>77 and pos.x<95 and absf(pos.z+90)>5:
 		player.health -= dt*18
+	if combat.active:
+		objective.text = tr2("কাল্পনিক দলীয় ম্যাচ • মিত্র সবুজ, প্রতিপক্ষ বাদামি","Fictional match • Allies green, opponents brown")
+		stats.text = tr2("স্বাস্থ্য ","Health ")+str(int(player.health))+" • "+str(Engine.get_frames_per_second())+" FPS"
+		minimap.queue_redraw()
+		if notice_time>0: notice_time-=dt
+		else: message.text=""
+		return
 	if player.health<=0 or elapsed>600:
 		fail_mission()
 		return
@@ -425,9 +442,15 @@ func draw_minimap() -> void:
 	minimap.draw_line(Vector2(143,0),Vector2(143,200),Color("589caa"),9)
 	minimap.draw_line(Vector2(100,0),Vector2(100,200),Color("b3a078"),4)
 	minimap.draw_circle(Vector2(player.position.x,player.position.z)/2+Vector2(100,100),4,Color.WHITE)
-	if not goals.is_empty():
+	if is_instance_valid(combat) and combat.active:
+		minimap.draw_line(Vector2(135,0),Vector2(135,200),Color("edcc6b"),1)
+		for actor in combat.actors:
+			if actor.dead_left>0:continue
+			minimap.draw_circle(Vector2(actor.position.x,actor.position.z)/2+Vector2(100,100),2,[Color("69d580"),Color("ee9471"),Color("c8c7b6")][actor.team])
+	if not goals.is_empty() and not combat.active:
 		minimap.draw_circle(Vector2(goals[step].x,goals[step].z)/2+Vector2(100,100),5,Color("edcc6b"))
 func save_game() -> void:
+	if is_instance_valid(combat) and combat.active: return
 	var data := {"version":1,"visual_revision":2,"unlocked":unlocked,"rewards":rewards,"mission":mission,"step":step,"elapsed":elapsed,"talked":talked,"jumped":jumped,"position":[player.position.x,player.position.y,player.position.z],"health":player.health,"stamina":player.stamina,"language":language,"quality":quality,"outfit":outfit}
 	if OS.has_feature("web"):
 		var encoded := Marshalls.utf8_to_base64(JSON.stringify(data))
