@@ -31,7 +31,7 @@ func run() -> void:
  finger(1,Vector2(155,483),false);action("ADS",3,false);action("ADS",3);action("ADS",3,false)
  await wait_frames(20)
  action("CROUCH",5);action("CROUCH",5,false);await wait_frames(20)
- assert(p.crouched and p.body_collision.shape.height<1.2)
+ assert(p.crouched and p.body_collision.shape.height<1.6)
  var rounds: int=game.combat.ammo;action("FIRE",2);await wait_frames(15);action("FIRE",2,false)
  assert(game.combat.ammo<rounds,"Crouch fire")
  action("PRONE",6);action("PRONE",6,false);await wait_frames(20)
@@ -66,7 +66,7 @@ func run() -> void:
  finger(1,Vector2(227,555),false);await wait_frames(20)
  # Standing must not pass through a low ceiling.
  action("CROUCH",5);action("CROUCH",5,false);await wait_frames(20)
- var ceiling: MeshInstance3D=game.box(p.position+Vector3(0,1.48,0),Vector3(3,.15,3),Color.GRAY)
+ var ceiling: MeshInstance3D=game.box(p.position+Vector3(0,1.65,0),Vector3(3,.15,3),Color.GRAY)
  await wait_frames(3);action("CROUCH",5);action("CROUCH",5,false);await wait_frames(3)
  assert(p.crouched,"Low ceiling blocks standing")
  ceiling.queue_free();await wait_frames(20)

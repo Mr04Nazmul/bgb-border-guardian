@@ -16,7 +16,7 @@ func _draw() -> void:
 	if kind in ["FIRE","FIRE_L","ADS"]:
 		draw_arc(center,k*.57,0,TAU,32,c,2,true)
 		for d in [Vector2.UP,Vector2.DOWN,Vector2.LEFT,Vector2.RIGHT]:draw_line(center+d*k*.25,center+d*k,c,2,true)
-	elif kind in ["CROUCH","PRONE","JUMP","SPRINT"]:
+	elif kind in ["CROUCH","PRONE","JUMP","SPRINT","STAND"]:
 		var horizontal:=kind=="PRONE"
 		var head:=center+Vector2(-.65,-.1)*k if horizontal else center+Vector2(0,-.6)*k
 		draw_circle(head,k*.18,c)

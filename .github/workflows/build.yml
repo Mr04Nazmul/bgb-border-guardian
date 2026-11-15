@@ -75,6 +75,8 @@ jobs:
           grep 'CONTROLS PASS' build/controls.log
           timeout 60 godot --headless --script tests/action_matrix.gd 2>&1 | tee build/action-matrix.log
           grep 'ACTION MATRIX PASS' build/action-matrix.log
+          XDG_DATA_HOME=/tmp/bgb-aim-check timeout 60 godot --headless --script tests/aim_assist_check.gd 2>&1 | tee build/aim-assist.log
+          grep 'AIM ASSIST PASS' build/aim-assist.log
       - name: Build Android APK and verify signature
         shell: bash
         run: |

@@ -9,6 +9,7 @@ var fire_sources: Dictionary={}
 var feedback_left:=0.0
 var blocked_left:=0.0
 var aim := false
+var assist:=preload("res://scripts/aim_assist.gd").new()
 var ammo := 24
 var reserve := 144
 var reload_left := 0.0
@@ -30,6 +31,7 @@ var royale := false
 const Actor = preload("res://scripts/combat_actor.gd")
 func setup(owner_game: Node3D,root: Control) -> void:
 	game = owner_game
+	assist.arena=self
 	shot_audio=AudioStreamPlayer.new()
 	shot_audio.stream=load("res://assets/sfx/shot.wav")
 	shot_audio.volume_db= -18
@@ -119,6 +121,7 @@ func stop_match() -> void:
 	if is_instance_valid(br):br.stop()
 	royale=false
 	active=false
+	assist.target=null
 	game.playing=false
 	if is_instance_valid(shot_audio):shot_audio.stop()
 	fire_held=false;mouse_fire=false;fire_sources.clear()
@@ -181,7 +184,7 @@ func fire_player() -> bool:
 	var hit:=ray(start,target,[game.player.get_rid()])
 	if not hit.is_empty():target=hit.position
 	# Muzzle ray prevents shooting through a nearby wall with the chase camera.
-	var body_origin: Vector3=game.player.position+Vector3(0,0.42 if game.player.prone else (0.95 if game.player.crouched else 1.35),0)
+	var body_origin: Vector3=game.player.position+Vector3(0,0.42 if game.player.prone else (1.1 if game.player.crouched else 1.35),0)
 	var muzzle_node: Node3D=game.player.weapon.find_child("Muzzle",true,false)
 	var muzzle: Vector3=muzzle_node.global_position if is_instance_valid(muzzle_node) else body_origin
 	# Block a barrel that protrudes through nearby geometry before tracing toward the reticle.
@@ -192,7 +195,7 @@ func fire_player() -> bool:
 	if not hit.is_empty() and hit.collider is CharacterBody3D and hit.collider in actors:
 		var actor: CharacterBody3D=hit.collider
 		if actor.team==1 or (royale and actor.team>=100):
-			var multiplier:=2.0 if hit.position.y-actor.global_position.y>(1.05 if actor.crouched else 1.48) else 1.0
+			var multiplier:=2.0 if hit.position.y-actor.global_position.y>(1.25 if actor.crouched else 1.48) else 1.0
 			actor.receive_damage((br.weapon_stat("damage",34) if royale else 34)*multiplier,0)
 			crosshair.modulate=Color("ffb46a")
 		elif actor.team==2:
@@ -214,8 +217,8 @@ func trace(from: Vector3,to: Vector3,color: Color) -> void:
 	traces.append({"node":mi,"life":0.07})
 func bot_fire(actor: CharacterBody3D,target: Node3D) -> void:
 	if royale and (not actor.has_weapon or actor.rounds<=0 or actor.reload_timer>0):return
-	var from: Vector3=actor.position+Vector3(0,0.95 if actor.crouched else 1.35,0)
-	var to: Vector3=target.position+Vector3(0,0.42 if target==game.player and game.player.prone else (0.8 if target==game.player and game.player.crouched else 1.1),0)
+	var from: Vector3=actor.position+Vector3(0,1.1 if actor.crouched else 1.35,0)
+	var to: Vector3=target.position+Vector3(0,0.42 if target==game.player and game.player.prone else (1.03 if target==game.player and game.player.crouched else 1.1),0)
 	var hit:=ray(from,to,[actor.get_rid()])
 	if hit.is_empty():return
 	if hit.collider!=target and not (target==game.player and game.player.driving and hit.collider==game.jeep):return

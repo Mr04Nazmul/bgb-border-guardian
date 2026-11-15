@@ -16,5 +16,6 @@ func _draw() -> void:
 	var color: Color=Color("ed6955") if game.combat.blocked_left>0 else game.combat.crosshair.modulate
 	for d in [Vector2.UP,Vector2.DOWN,Vector2.LEFT,Vector2.RIGHT]:draw_line(mid+d*spread,mid+d*(spread+7),color,1.5,true)
 	draw_circle(mid,1.2,Color.WHITE)
+	if is_instance_valid(game.combat.assist.target):draw_arc(mid,22,0,TAU,36,Color("a9db9b"),1.5,true)
 	if game.combat.aim:
 		draw_arc(mid,70,0,TAU,64,Color(0,0,0,.28),1,true)

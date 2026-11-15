@@ -192,6 +192,7 @@ func make_ui() -> void:
 	action_button(root,"JUMP",Vector2(1180,480),Vector2(76,76),func(): player.jump_requested = true)
 	action_button(root,"CROUCH",Vector2(1155,580),Vector2(76,76),player.toggle_crouch)
 	action_button(root,"PRONE",Vector2(1060,580),Vector2(76,76),player.toggle_prone)
+	action_button(root,"STAND",Vector2(965,580),Vector2(76,76),player.stand_up)
 	action_button(root,"SPRINT",Vector2(118,400),Vector2(74,74),func(): player.running = not player.running)
 	action_button(root,"USE",Vector2(940,470),Vector2(76,76),interact)
 	action_button(root,"VIEW",Vector2(245,200),Vector2(58,58),func(): player.first_person = not player.first_person)
@@ -303,6 +304,8 @@ func settings_menu() -> void:
 			if ads:player.ads_sensitivity=value
 			else:player.sensitivity=value
 			save_controls())
+	item(("Auto Aim • ON" if combat.assist.enabled else "Auto Aim • OFF"),func():
+		combat.assist.enabled=not combat.assist.enabled;save_controls();settings_menu())
 	item(tr2("বৃষ্টি চালু / বন্ধ","Toggle rain atmosphere"),func(): rain = not rain)
 	item(tr2("ফিরে যান","Back"),show_menu)
 func apply_quality() -> void:
@@ -398,7 +401,7 @@ func _process(dt: float) -> void:
 		b.visible=playing and not paused and (not b.has_meta("combat") or combat.active) and (not b.has_meta("royale") or combat.royale)
 		b.disabled=combat.active and combat.respawn_left>0 and b.kind!="II"
 		b.modulate.a=.4 if b.disabled else 1.0
-		b.set_meta("selected",(b.kind=="CROUCH" and player.crouched) or (b.kind=="PRONE" and player.prone) or (b.kind=="ADS" and combat.aim) or (b.kind=="SPRINT" and player.running))
+		b.set_meta("selected",(b.kind=="STAND" and not player.crouched and not player.prone) or (b.kind=="CROUCH" and player.crouched) or (b.kind=="PRONE" and player.prone) or (b.kind=="ADS" and combat.aim) or (b.kind=="SPRINT" and player.running))
 		if b.kind.begins_with("SLOT"):
 			var slot:=0 if b.kind=="SLOT1" else 1
 			b.set_meta("selected",slot==combat.br.selected and slot<combat.br.inventory.size())
@@ -641,7 +644,7 @@ func physics_test() -> void:
 	get_tree().quit()
 
 func save_controls() -> void:
-	var data:=JSON.stringify({"camera":player.sensitivity,"ads":player.ads_sensitivity})
+	var data:=JSON.stringify({"camera":player.sensitivity,"ads":player.ads_sensitivity,"auto_aim":combat.assist.enabled})
 	if OS.has_feature("web"):
 		JavaScriptBridge.eval("try{localStorage.setItem('bgb-controls','"+data+"')}catch(e){}",true)
 	else:
@@ -654,5 +657,6 @@ func load_controls() -> void:
 	if data.is_empty():return
 	var settings=JSON.parse_string(data)
 	if settings is Dictionary:
+		combat.assist.enabled=bool(settings.get("auto_aim",true))
 		player.sensitivity=clampf(float(settings.get("camera",0.75)),0.2,1.5)
 		player.ads_sensitivity=clampf(float(settings.get("ads",0.45)),0.2,1.5)

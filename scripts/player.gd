@@ -6,6 +6,8 @@ var running := false
 var crouched := false
 var prone := false
 var stance_lock:=0.0
+var requested_stance:=""
+var manual_look_left:=0.0
 var prone_collision: CollisionShape3D
 var recoil:=0.0
 var look_pending := Vector2.ZERO
@@ -32,10 +34,10 @@ func _ready() -> void:
 	var shape := CollisionShape3D.new()
 	var capsule := CapsuleShape3D.new()
 	capsule.radius = 0.32
-	capsule.height = 1.75
+	capsule.height = 1.85
 	body_collision = shape
 	shape.shape = capsule
-	shape.position.y = 0.9
+	shape.position.y = 0.95
 	add_child(shape)
 	prone_collision=CollisionShape3D.new()
 	var prone_shape:=CapsuleShape3D.new();prone_shape.radius=.27;prone_shape.height=1.8
@@ -104,18 +106,21 @@ func _physics_process(dt: float) -> void:
 	if driving:
 		return
 	stance_lock=maxf(0,stance_lock-dt)
+	manual_look_left=maxf(0,manual_look_left-dt)
+	if not requested_stance.is_empty() and stance_lock<=0:apply_requested_stance()
 	recoil=move_toward(recoil,0,dt*5)
 	var look_step := look_pending*(1.0-exp(-22.0*dt))
 	look_pending-=look_step
 	yaw-=look_step.x
 	pitch=clampf(pitch-look_step.y,-1.15,0.65)
+	get_parent().combat.assist.tick(dt)
 	if not crouched and not prone and body_collision.shape.height<1.7 and not stance_clear("stand"):
 		crouched=true
 	prone_collision.disabled=not prone
 	prone_collision.rotation.y=yaw
-	body_collision.shape.height=0.65 if prone else (1.15 if crouched else 1.75)
-	body_collision.position.y=0.34 if prone else (0.6 if crouched else 0.9)
-	pivot.position.y=lerpf(pivot.position.y,0.5 if prone else (1.05 if crouched else 1.5),1.0-exp(-12*dt))
+	body_collision.shape.height=0.65 if prone else (1.5 if crouched else 1.85)
+	body_collision.position.y=0.34 if prone else (0.77 if crouched else 0.95)
+	pivot.position.y=lerpf(pivot.position.y,0.5 if prone else (1.18 if crouched else 1.5),1.0-exp(-12*dt))
 	var axis := stick
 	axis += Vector2(float(Input.is_physical_key_pressed(KEY_D))-float(Input.is_physical_key_pressed(KEY_A)),float(Input.is_physical_key_pressed(KEY_S))-float(Input.is_physical_key_pressed(KEY_W)))
 	axis = axis.limit_length()
@@ -142,18 +147,19 @@ func _physics_process(dt: float) -> void:
 	visual.visible = not first_person
 	visual.scale = Vector3.ONE
 	var arena = get_parent().combat
-	if is_instance_valid(arena) and arena.active and weapon.visible:
+	if is_instance_valid(arena) and ((arena.active and weapon.visible) or prone or crouched):
 		visual.rotation.y=lerp_angle(visual.rotation.y,yaw,dt*12)
 	elif dir.length()>0.1:
 		visual.rotation.y=lerp_angle(visual.rotation.y,atan2(-dir.x,-dir.z),dt*12)
+	var moving:=Vector2(velocity.x,velocity.z).length()>.15
 	var clip := "idle"
 	if not is_on_floor():clip="jump"
-	elif prone:clip=("crawl_back" if axis.y>.15 else "crawl") if axis.length()>0.1 else "prone"
-	elif crouched:clip=("crouch_back" if axis.y>.15 else "crouch_walk") if axis.length()>0.1 else "crouch"
+	elif prone:clip=("crawl_back" if axis.y>.15 else "crawl") if moving else "prone"
+	elif crouched:clip=("crouch_back" if axis.y>.15 else "crouch_walk") if moving else "crouch"
 	elif is_instance_valid(arena) and arena.active and arena.reload_left>0:clip="reload"
-	elif is_instance_valid(arena) and arena.active and (arena.aim or arena.fire_held or arena.shot_left>0):clip=("armed_walk" if axis.length()>0.1 else "aim")
-	elif axis.length()>0.1:clip=("armed_run" if sprint else "armed_walk") if weapon.visible else ("run" if sprint else "walk")
-	if weapon.visible and axis.length()>.1 and not crouched and not prone and is_on_floor() and arena.reload_left<=0:
+	elif is_instance_valid(arena) and arena.active and (arena.aim or arena.fire_held or arena.shot_left>0):clip=("armed_walk" if moving else "aim")
+	elif moving:clip=("armed_run" if sprint else "armed_walk") if weapon.visible else ("run" if sprint else "walk")
+	if weapon.visible and moving and not crouched and not prone and is_on_floor() and arena.reload_left<=0:
 		clip="armed_run" if sprint else ("walk_back" if axis.y>.2 else ("strafe_left" if axis.x<-.5 else ("strafe_right" if axis.x>.5 else "armed_walk")))
 	if arena.active and arena.reload_left>0:clip="prone_reload" if prone else ("crouch_reload" if crouched else "reload")
 	play_animation(clip,dt)
@@ -170,24 +176,33 @@ func play_animation(clip: String,dt: float) -> void:
 	animation_player.advance(dt*(maxf(.3,Vector2(velocity.x,velocity.z).length()/4.0) if clip in ["walk","armed_walk","walk_back","strafe_left","strafe_right"] else 1.0))
 
 func add_look(delta: Vector2) -> void:
+	manual_look_left=.16
 	var scale_factor:=ads_sensitivity if get_parent().combat.aim else sensitivity
 	look_pending+=delta.limit_length(90)*0.0032*scale_factor
+func current_stance() -> String:
+	return "prone" if prone else ("crouch" if crouched else "stand")
 func toggle_crouch() -> void:
-	if driving or stance_lock>0:return
-	var target:="stand" if crouched else "crouch"
-	if not stance_clear(target):return
-	prone=false;crouched=target=="crouch";running=false;stance_lock=.18
+	var current:=requested_stance if not requested_stance.is_empty() else current_stance()
+	request_stance("stand" if current=="crouch" else "crouch")
 func toggle_prone() -> void:
-	if driving or not is_on_floor() or stance_lock>0:return
-	var target:="stand" if prone else "prone"
+	var current:=requested_stance if not requested_stance.is_empty() else current_stance()
+	request_stance("stand" if current=="prone" else "prone")
+func stand_up() -> void:request_stance("stand")
+func request_stance(target: String) -> void:
+	if driving or (target=="prone" and not is_on_floor()):return
+	requested_stance=target
+	if stance_lock<=0:apply_requested_stance()
+func apply_requested_stance() -> void:
+	var target:=requested_stance;requested_stance=""
+	if target==current_stance():return
 	if not stance_clear(target):
 		get_parent().notify("জায়গা নেই • Not enough room")
 		return
-	prone=target=="prone";crouched=false;running=false;stance_lock=.18
+	prone=target=="prone";crouched=target=="crouch";running=false;stance_lock=.16
 func stance_clear(stance: String) -> bool:
-	var shape:=CapsuleShape3D.new();shape.radius=.30;shape.height=1.73 if stance=="stand" else (1.13 if stance=="crouch" else 1.8)
+	var shape:=CapsuleShape3D.new();shape.radius=.30;shape.height=1.83 if stance=="stand" else (1.48 if stance=="crouch" else 1.8)
 	var query:=PhysicsShapeQueryParameters3D.new();query.shape=shape;query.exclude=[get_rid()];query.margin=0.0
-	query.transform=Transform3D(Basis.IDENTITY,global_position+Vector3(0,.91 if stance=="stand" else (.61 if stance=="crouch" else .32),0))
+	query.transform=Transform3D(Basis.IDENTITY,global_position+Vector3(0,.96 if stance=="stand" else (.78 if stance=="crouch" else .32),0))
 	if stance=="prone":query.transform.basis=Basis(Vector3.UP,yaw)*Basis(Vector3.RIGHT,PI/2);shape.radius=.27
 	return get_world_3d().direct_space_state.intersect_shape(query,1).is_empty()
 func kick_weapon() -> void:
@@ -195,5 +210,5 @@ func kick_weapon() -> void:
 	look_pending.y-=.006*(.4 if prone else (.65 if crouched else 1.0))
 
 func reset_motion() -> void:
-	stick=Vector2.ZERO;look_pending=Vector2.ZERO;velocity=Vector3.ZERO
+	stick=Vector2.ZERO;look_pending=Vector2.ZERO;velocity=Vector3.ZERO;requested_stance="";manual_look_left=0
 	running=false;crouched=false;prone=false;jump_requested=false;stance_lock=0;recoil=0;stamina=100
