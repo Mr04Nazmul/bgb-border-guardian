@@ -1,0 +1,6 @@
+.godot/
+build/
+dist/
+*.keystore
+*.idsig
+.openai/
