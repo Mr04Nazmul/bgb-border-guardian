@@ -28,8 +28,8 @@ const WEAPONS={"pistol":{"mag":12,"damage":24,"interval":0.32,"range":80},"rifle
 const RADII=[230.0,170.0,125.0,85.0,55.0,30.0,12.0,0.0]
 func setup(owner_arena: Node3D,root: Control) -> void:
 	arena=owner_arena
-	extra_controls.append(arena.game.button(root,"HEAL",Vector2(790,580),Vector2(115,60),use_medkit))
-	extra_controls.append(arena.game.button(root,"SWAP",Vector2(790,490),Vector2(115,65),switch_weapon))
+	extra_controls.append(arena.game.action_button(root,"HEAL",Vector2(810,575),Vector2(76,76),use_medkit))
+	extra_controls.append(arena.game.action_button(root,"SWAP",Vector2(810,480),Vector2(76,76),switch_weapon))
 	for b in extra_controls:b.hide()
 	var mesh:=CylinderMesh.new()
 	mesh.top_radius=1;mesh.bottom_radius=1;mesh.height=1;mesh.radial_segments=96
@@ -55,7 +55,7 @@ func start() -> void:
 	game.playing=true;game.paused=false;game.menu.hide();game.marker.hide()
 	if game.player.driving:game.leave_vehicle()
 	game.player.position=Vector3(-8,1,45);game.player.velocity=Vector3.ZERO;game.player.health=100
-	game.player.crouched=false;game.player.running=false;game.player.camera.make_current()
+	game.player.prone=false;game.touch.reset();game.player.look_pending=Vector2.ZERO;game.player.crouched=false;game.player.running=false;game.player.camera.make_current()
 	for actor in arena.actors:
 		actor.hide();actor.collision_layer=0;actor.collision_mask=0;actor.set_physics_process(false)
 	var spawns: Array[Vector2]=[Vector2(-150,-125),Vector2(-125,-80),Vector2(-130,-20),Vector2(-155,50),Vector2(-110,80),Vector2(-75,125),Vector2(130,30),Vector2(15,105),Vector2(45,70),Vector2(52,15),Vector2(38,-35),Vector2(25,-95),Vector2(-10,-125),Vector2(-45,-145),Vector2(135,-110),Vector2(160,80),Vector2(-50,45),Vector2(-90,20),Vector2(15,-145)]

@@ -50,6 +50,7 @@ func tr2(bn: String,en: String) -> String:
 func _ready() -> void:
 	make_world()
 	make_ui()
+	load_controls()
 	load_game(false)
 	show_menu()
 	if "--physics-test" in OS.get_cmdline_user_args():
@@ -184,19 +185,16 @@ func make_ui() -> void:
 	touch = Touch.new()
 	root.add_child(touch)
 	touch.look.connect(func(delta: Vector2):
-		if playing and not paused:
-			player.yaw -= delta.x*0.004
-			player.pitch = clampf(player.pitch-delta.y*0.004,-1.1,0.5))
-	button(root,"II",Vector2(1185,24),Vector2(65,55),toggle_pause)
-	button(root,"↥",Vector2(1170,500),Vector2(80,65),func(): player.jump_requested = true)
-	button(root,"C",Vector2(1070,575),Vector2(80,65),func(): player.crouched = not player.crouched)
-	var run_btn := button(root,"RUN",Vector2(1170,575),Vector2(80,65),func(): pass)
-	run_btn.button_down.connect(func(): player.running = true)
-	run_btn.button_up.connect(func(): player.running = false)
-	button(root,"E",Vector2(1070,490),Vector2(80,65),interact)
-	button(root,"VIEW",Vector2(1170,400),Vector2(80,65),func(): player.first_person = not player.first_person)
+		if playing and not paused:player.add_look(delta))
+	action_button(root,"II",Vector2(1185,24),Vector2(60,50),toggle_pause)
+	action_button(root,"JUMP",Vector2(1165,480),Vector2(74,74),func(): player.jump_requested = true)
+	action_button(root,"CROUCH",Vector2(1080,575),Vector2(76,76),player.toggle_crouch)
+	action_button(root,"PRONE",Vector2(1165,575),Vector2(76,76),player.toggle_prone)
+	action_button(root,"SPRINT",Vector2(92,402),Vector2(80,66),func(): player.running = not player.running)
+	action_button(root,"USE",Vector2(990,575),Vector2(76,76),interact)
+	action_button(root,"VIEW",Vector2(24,310),Vector2(68,56),func(): player.first_person = not player.first_person)
 	minimap = Control.new()
-	minimap.position = Vector2(1040,100)
+	minimap.position = Vector2(1020,90)
 	minimap.size = Vector2(200,200)
 	minimap.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	minimap.draw.connect(draw_minimap)
@@ -227,6 +225,17 @@ func button(parent: Node,text: String,pos: Vector2,size: Vector2,action: Callabl
 	b.pressed.connect(action)
 	parent.add_child(b)
 	return b
+func action_button(parent: Node,text: String,pos: Vector2,dimensions: Vector2,action: Callable) -> Button:
+	var b:=button(parent,text,pos,dimensions,action)
+	b.focus_mode=Control.FOCUS_NONE
+	b.add_theme_font_size_override("font_size",14)
+	for state in ["normal","hover","pressed"]:
+		var style:=StyleBoxFlat.new();style.bg_color=Color(0.06,0.09,0.08,0.38 if state=="normal" else 0.65)
+		style.border_color=Color(0.9,0.95,0.85,0.65);style.set_border_width_all(2);style.set_corner_radius_all(40)
+		b.add_theme_stylebox_override(state,style)
+	touch.reserved.append(Rect2(pos,dimensions))
+	touch.actions.append({"button":b,"area":Rect2(pos,dimensions)})
+	return b
 func clear_menu(title: String) -> void:
 	for c in menu_box.get_children():
 		menu_box.remove_child(c)
@@ -240,6 +249,7 @@ func item(text: String,action: Callable) -> Button:
 	return button(menu_box,text,Vector2.ZERO,Vector2(470,45),action)
 func show_menu() -> void:
 	paused = true
+	if is_instance_valid(touch):touch.reset();player.running=false;player.look_pending=Vector2.ZERO;combat.fire_held=false
 	clear_menu("BORDER GUARDIAN\nBANGLADESH")
 	var sub := Label.new()
 	sub.text = tr2("কাল্পনিক উদ্ধার ও প্রশিক্ষণ অভিযান\nকোনো সরকারি সংস্থার অনুমোদিত নয়","Fictional rescue & training simulator\nNot affiliated with any government agency")
@@ -283,7 +293,14 @@ func settings_menu() -> void:
 			apply_quality()
 			save_game()
 			settings_menu())
-	item(tr2("মূল চরিত্র: Rafi","Main character: Rafi"),func(): pass).disabled = true
+	for ads in [false,true]:
+		var row:=HBoxContainer.new();menu_box.add_child(row)
+		var caption:=Label.new();caption.text="ADS" if ads else "Camera";caption.custom_minimum_size.x=110;row.add_child(caption)
+		var slider:=HSlider.new();slider.min_value=0.2;slider.max_value=1.5;slider.step=0.05;slider.value=player.ads_sensitivity if ads else player.sensitivity;slider.custom_minimum_size=Vector2(310,32);row.add_child(slider)
+		slider.value_changed.connect(func(value: float):
+			if ads:player.ads_sensitivity=value
+			else:player.sensitivity=value
+			save_controls())
 	item(tr2("বৃষ্টি চালু / বন্ধ","Toggle rain atmosphere"),func(): rain = not rain)
 	item(tr2("ফিরে যান","Back"),show_menu)
 func apply_quality() -> void:
@@ -359,16 +376,17 @@ func _unhandled_input(event: InputEvent) -> void:
 		match event.physical_keycode:
 			KEY_ESCAPE: toggle_pause()
 			KEY_SPACE: player.jump_requested = true
-			KEY_C: player.crouched = not player.crouched
+			KEY_C: player.toggle_crouch()
+			KEY_Z: player.toggle_prone()
 			KEY_E: interact()
 			KEY_V: player.first_person = not player.first_person
 			KEY_R: combat.reload_weapon()
 			KEY_H: combat.br.use_medkit()
 			KEY_Q: combat.br.switch_weapon()
 	if event is InputEventMouseMotion and Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT) and not paused:
-		player.yaw -= event.relative.x*0.004
-		player.pitch = clampf(player.pitch-event.relative.y*0.004,-1.1,0.5)
+		player.add_look(event.relative)
 func _process(dt: float) -> void:
+	Input.emulate_mouse_from_touch=not playing or paused
 	player.set_physics_process(playing and not paused)
 	jeep.set_physics_process(playing and not paused)
 	touch.visible = playing and not paused
@@ -436,6 +454,7 @@ func advance_objective() -> void:
 		notify(tr2("লক্ষ্য সম্পন্ন! পরের চিহ্নে যান।","Objective complete! Follow the next marker."))
 func fail_mission() -> void:
 	paused = true
+	if is_instance_valid(touch):touch.reset();player.running=false;player.look_pending=Vector2.ZERO;combat.fire_held=false
 	clear_menu(tr2("মিশন ব্যর্থ • স্বাস্থ্য / সময় শেষ","Mission failed • health / time exhausted"))
 	item(tr2("আবার চেষ্টা","Retry"),func(): start_mission(mission))
 	item(tr2("প্রধান মেনু","Main menu"),show_menu)
@@ -578,6 +597,8 @@ func physics_test() -> void:
 	for i in 10:
 		await get_tree().physics_frame
 	assert(player.position.distance_to(stopped)<0.01, "Pause must freeze character")
+	# Explicitly show input surface for synthetic touch injection after verifying pause.
+	touch.show()
 	# Multi-touch joystick press, drag and release.
 	var press := InputEventScreenTouch.new()
 	press.index = 4
@@ -594,3 +615,20 @@ func physics_test() -> void:
 	assert(touch.move_axis == Vector2.ZERO)
 	print("PHYSICS PASS: terrain collision, joystick movement, jump/land, sprint stamina, crouch, vehicle movement, pause, touch release")
 	get_tree().quit()
+
+func save_controls() -> void:
+	var data:=JSON.stringify({"camera":player.sensitivity,"ads":player.ads_sensitivity})
+	if OS.has_feature("web"):
+		JavaScriptBridge.eval("try{localStorage.setItem('bgb-controls','"+data+"')}catch(e){}",true)
+	else:
+		var file:=FileAccess.open("user://controls.json",FileAccess.WRITE)
+		if file:file.store_string(data)
+func load_controls() -> void:
+	var data=""
+	if OS.has_feature("web"):data=JavaScriptBridge.eval("(function(){try{return localStorage.getItem('bgb-controls')||'';}catch(e){return '';}})()",true)
+	elif FileAccess.file_exists("user://controls.json"):data=FileAccess.get_file_as_string("user://controls.json")
+	if data.is_empty():return
+	var settings=JSON.parse_string(data)
+	if settings is Dictionary:
+		player.sensitivity=clampf(float(settings.get("camera",0.75)),0.2,1.5)
+		player.ads_sensitivity=clampf(float(settings.get("ads",0.45)),0.2,1.5)

@@ -5,7 +5,7 @@ func run() -> void:
 	root.add_child(game)
 	game.combat.start_match()
 	var arena: Node3D=game.combat
-	assert(arena.actors.size()==30,"20 soldiers plus 10 civilians")
+	assert(arena.actors.size()==29,"19 bots plus 10 civilians; player makes balanced 10v10")
 	for i in 60:await physics_frame
 	assert(game.player.is_on_floor())
 	assert(arena.fire_player())
@@ -58,7 +58,7 @@ func run() -> void:
 	arena._process(0.1)
 	assert(not arena.result.is_empty() and game.paused)
 	arena.start_match()
-	assert(arena.actors.size()==30,"Restart must not duplicate actors")
+	assert(arena.actors.size()==29,"Restart must not duplicate actors")
 	arena.stop_match()
 	assert(arena.actors.size()==10)
 	game.queue_free()

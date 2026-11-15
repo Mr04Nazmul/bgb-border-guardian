@@ -1,6 +1,6 @@
 """Reproducible original stylized full-volume Rafi-inspired rig. Run in Blender."""
 import bpy, math, random, os, json
-from mathutils import Vector
+from mathutils import Vector, Matrix
 from pathlib import Path
 root=Path(__file__).resolve().parents[1]
 out=root/'assets/characters/rafi_rig';out.mkdir(parents=True,exist_ok=True)
@@ -97,15 +97,15 @@ for name,head,tail,parent in bones:
  if parent:bone.parent=rig.data.edit_bones[parent]
 bpy.ops.object.mode_set(mode='OBJECT');mod=mesh.modifiers.new('Rafi skeleton','ARMATURE');mod.object=rig;mesh.parent=rig
 rig.animation_data_create();scene=bpy.context.scene;scene.render.fps=30
-clips=[('idle',60),('walk',30),('run',20),('jump',30),('crouch',40),('aim',30),('reload',45)]
+clips=[('idle',60),('walk',30),('run',20),('jump',30),('crouch',40),('aim',30),('reload',45),('armed_walk',30),('armed_run',20),('crouch_walk',40),('prone',40),('crawl',50)]
 for clip,length in clips:
  action=bpy.data.actions.new(clip);action.use_fake_user=True;rig.animation_data.action=action
  for frame in range(0,length+1,2):
   p=frame/length;wave=math.sin(p*2*math.pi)
   for bone in rig.pose.bones:bone.rotation_mode='XYZ';bone.rotation_euler=(0,0,0);bone.location=(0,0,0)
   rig.pose.bones['chest'].rotation_euler.x=.025*wave
-  if clip in ['walk','run']:
-   amp=.5 if clip=='walk' else .85
+  if clip in ['walk','run','armed_walk','armed_run','crouch_walk']:
+   amp=.5 if clip in ['walk','armed_walk'] else (.25 if clip=='crouch_walk' else .85)
    for side,sign in [('L',1),('R',-1)]:
     v=wave*sign
     rig.pose.bones['thigh.'+side].rotation_euler.x=v*amp
@@ -117,14 +117,42 @@ for clip,length in clips:
    tuck=math.sin(p*math.pi)
    for side in ['L','R']:
     rig.pose.bones['thigh.'+side].rotation_euler.x=-.55*tuck;rig.pose.bones['shin.'+side].rotation_euler.x=1.0*tuck;rig.pose.bones['upper_arm.'+side].rotation_euler.x=-.55*tuck
-  if clip=='crouch':
+  if clip in ['crouch','crouch_walk']:
    rig.pose.bones['root'].location.y=-.28
    rig.pose.bones['chest'].rotation_euler.x=.32
    for side in ['L','R']:rig.pose.bones['thigh.'+side].rotation_euler.x=-.8;rig.pose.bones['shin.'+side].rotation_euler.x=1.25
-  if clip in ['aim','reload']:
+  if clip in ['aim','reload','armed_walk','armed_run','crouch','crouch_walk','prone','crawl']:
    rig.pose.bones['upper_arm.R'].rotation_euler.x=-1.15;rig.pose.bones['forearm.R'].rotation_euler.x=.45
    rig.pose.bones['upper_arm.L'].rotation_euler.x=-1.05;rig.pose.bones['forearm.L'].rotation_euler.x=.7
    if clip=='reload':rig.pose.bones['forearm.L'].rotation_euler.x=.7+math.sin(p*math.pi)*.8
+  if clip in ['prone','crawl']:
+   rig.pose.bones['root'].rotation_euler.x=math.pi/2
+   rig.pose.bones['root'].location.y=.28
+   rig.pose.bones['root'].location.z=-.85
+   rig.pose.bones['neck'].rotation_euler.x=.45
+   for side,sign in [('L',1),('R',-1)]:
+    rig.pose.bones['thigh.'+side].rotation_euler.z=.13*sign
+    rig.pose.bones['shin.'+side].rotation_euler.x=.1+(max(0,wave*sign)*.3 if clip=='crawl' else 0)
+    rig.pose.bones['upper_arm.'+side].rotation_euler.x=-1.3+(wave*sign*.14 if clip=='crawl' else 0)
+    rig.pose.bones['forearm.'+side].rotation_euler.x=.9
+  if clip in ['aim','reload','armed_walk','armed_run','crouch','crouch_walk','prone','crawl']:
+   # Bake two-bone arm posing to grip locations, retaining leg locomotion.
+   bpy.context.view_layer.update()
+   chest=rig.pose.bones['chest'];delta=chest.matrix @ chest.bone.matrix_local.inverted()
+   for side,sign in [('L',1),('R',-1)]:
+    upper=rig.pose.bones['upper_arm.'+side];fore=rig.pose.bones['forearm.'+side];hand=rig.pose.bones['hand.'+side]
+    start=Vector((sign*.27,0,1.39))
+    target=Vector((-.04,-.43 if side=='L' else -.12,1.35))
+    if clip in ['prone','crawl']:target=Vector((sign*.10,-.06,1.88))
+    if clip=='reload' and side=='L':target.z-=.16*math.sin(p*math.pi)
+    offset=target-start;distance=min(offset.length,upper.length+fore.length-.005);direction=offset.normalized()
+    along=(upper.length**2-fore.length**2+distance**2)/(2*distance)
+    sideways=Vector((sign,0,-.3));sideways=(sideways-direction*sideways.dot(direction)).normalized()
+    elbow=start+direction*along+sideways*math.sqrt(max(.0001,upper.length**2-along**2))
+    for bone,a,b in [(upper,start,elbow),(fore,elbow,target),(hand,target,target+Vector((0,-.13,0)))]:
+     aa=delta @ a;bb=delta @ b
+     bone.matrix=Matrix.Translation(aa) @ (bb-aa).to_track_quat('Y','Z').to_matrix().to_4x4()
+     bpy.context.view_layer.update()
   for bone in rig.pose.bones:
    bone.keyframe_insert('rotation_euler',frame=frame,group=bone.name);bone.keyframe_insert('location',frame=frame,group=bone.name)
  for curve in action.fcurves:
@@ -134,12 +162,3 @@ bpy.ops.object.select_all(action='DESELECT');mesh.select_set(True);rig.select_se
 bpy.ops.wm.save_as_mainfile(filepath='/tmp/rafi-rig-source.blend')
 bpy.ops.export_scene.gltf(filepath=str(out/'rafi_rig.glb'),export_format='GLB',use_selection=True,export_animations=True,export_animation_mode='ACTIONS',export_force_sampling=True,export_skins=True)
 print('RAFI RIG BUILT',len(mesh.data.vertices),'vertices',len(mesh.data.polygons),'polygons',len(bones),'bones',len(clips),'clips')
-# QA render only; it is not an in-game screenshot.
-rig.animation_data.action=bpy.data.actions['idle'];scene.frame_set(0)
-scene.render.engine='CYCLES';scene.cycles.samples=24;scene.cycles.use_denoising=False
-scene.world.color=(.2,.2,.2)
-def area(name,loc,power,size):
- data=bpy.data.lights.new(name,'AREA');data.energy=power;data.shape='DISK';data.size=size;obj=bpy.data.objects.new(name,data);scene.collection.objects.link(obj);obj.location=loc;obj.rotation_euler=(Vector((0,0,1))-obj.location).to_track_quat('-Z','Y').to_euler()
-area('Key',(3,-4,5),450,4);area('Fill',(-3,-2,3),250,3)
-data=bpy.data.cameras.new('QA camera');camera=bpy.data.objects.new('QA camera',data);scene.collection.objects.link(camera);camera.location=(2,-4,2.0);camera.rotation_euler=(Vector((0,0,1.05))-camera.location).to_track_quat('-Z','Y').to_euler();data.type='ORTHO';data.ortho_scale=2.25;scene.camera=camera
-scene.render.resolution_x=800;scene.render.resolution_y=1000;scene.render.resolution_percentage=100;scene.render.film_transparent=True;scene.render.image_settings.file_format='PNG';scene.render.filepath='/tmp/rafi-rig-qa.png';bpy.ops.render.render(write_still=True)

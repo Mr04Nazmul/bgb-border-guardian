@@ -41,11 +41,11 @@ func setup(owner_game: Node3D,root: Control) -> void:
 	crosshair.position = Vector2(630,337)
 	root.add_child(crosshair)
 	crosshair.hide()
-	var fire: Button = game.button(root,"FIRE",Vector2(955,490),Vector2(100,75),func(): pass)
+	var fire: Button = game.action_button(root,"FIRE",Vector2(1070,375),Vector2(90,90),func(): pass)
 	fire.button_down.connect(func(): fire_held=true)
 	fire.button_up.connect(func(): fire_held=false)
-	var reload_button: Button = game.button(root,"RELOAD",Vector2(925,580),Vector2(130,60),reload_weapon)
-	var aim_button: Button = game.button(root,"AIM",Vector2(955,405),Vector2(100,60),func(): aim=not aim)
+	var reload_button: Button = game.action_button(root,"RELOAD",Vector2(900,575),Vector2(76,76),reload_weapon)
+	var aim_button: Button = game.action_button(root,"ADS",Vector2(1170,375),Vector2(74,74),func(): aim=not aim)
 	controls.assign([fire,reload_button,aim_button])
 	for control in controls:control.hide()
 	br=BattleRoyale.new()
@@ -93,14 +93,15 @@ func start_match() -> void:
 	game.marker.hide()
 	game.player.position=Vector3(35,1,-90)
 	game.player.health=100
+	game.player.prone=false;game.player.crouched=false;game.touch.reset()
 	game.player.velocity=Vector3.ZERO
 	if game.player.driving:
 		game.leave_vehicle()
 		game.player.position=Vector3(35,1,-90)
 	game.player.camera.make_current()
-	for i in 8:
+	for i in 9:
 		spawn_actor(0,Vector3(32+float(i%4)*5,1,-108+float(i/4)*9))
-	for i in 12:
+	for i in 10:
 		var x := 112+float(i%4)*6
 		var z := -110+float(i/4)*10
 		spawn_actor(1,Vector3(x,game.landscape.height_at(x,z)+1,z))
@@ -171,7 +172,7 @@ func fire_player() -> bool:
 	var hit:=ray(start,target,[game.player.get_rid()])
 	if not hit.is_empty():target=hit.position
 	# Muzzle ray prevents shooting through a nearby wall with the chase camera.
-	var muzzle: Vector3=game.player.position+Vector3(0,1.35,0)
+	var muzzle: Vector3=game.player.position+Vector3(0,0.42 if game.player.prone else (0.95 if game.player.crouched else 1.35),0)
 	var obstruction:=ray(muzzle,target,[game.player.get_rid()])
 	if not obstruction.is_empty():hit=obstruction;target=hit.position
 	if not hit.is_empty() and hit.collider is CharacterBody3D and hit.collider in actors:
@@ -198,8 +199,8 @@ func trace(from: Vector3,to: Vector3,color: Color) -> void:
 	traces.append({"node":mi,"life":0.07})
 func bot_fire(actor: CharacterBody3D,target: Node3D) -> void:
 	if royale and (not actor.has_weapon or actor.rounds<=0 or actor.reload_timer>0):return
-	var from: Vector3=actor.position+Vector3(0,1.35,0)
-	var to: Vector3=target.position+Vector3(0,1.1,0)
+	var from: Vector3=actor.position+Vector3(0,0.95 if actor.crouched else 1.35,0)
+	var to: Vector3=target.position+Vector3(0,0.42 if target==game.player and game.player.prone else (0.8 if target==game.player and game.player.crouched else 1.1),0)
 	var hit:=ray(from,to,[actor.get_rid()])
 	if hit.is_empty():return
 	if hit.collider!=target and not (target==game.player and game.player.driving and hit.collider==game.jeep):return
@@ -259,10 +260,15 @@ func _process(dt: float) -> void:
 	else:
 		if game.player.health<=0:damage_player(100)
 		if fire_held or (not DisplayServer.is_touchscreen_available() and Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)):fire_player()
-	game.player.camera.fov=50 if aim else 70
+	game.player.camera.fov=lerpf(game.player.camera.fov,50.0 if aim else 70.0,1.0-exp(-14*dt))
 	if royale:
 		br.tick(dt)
 		return
-	label.text=game.tr2("অফলাইন দলীয় ম্যাচ","OFFLINE TEAM MATCH")+"  "+str(score[0])+" : "+str(score[1])+" / 30\n"+str(int(clock))+"s  •  "+str(ammo)+" / "+str(reserve)+(game.tr2(" • রিলোড"," • Reloading") if reload_left>0 else "")
+	label.text=game.tr2("বাংলাদেশ দল : ভারত দল • কাল্পনিক 10v10","Bangladesh : India • Fictional 10v10")+"  "+str(score[0])+" : "+str(score[1])+" / 30\n"+str(int(clock))+"s  •  "+str(ammo)+" / "+str(reserve)+(game.tr2(" • রিলোড"," • Reloading") if reload_left>0 else "")
 	if respawn_left>0:label.text+="\n"+game.tr2("ফিরে আসবেন: ","Respawn: ")+str(ceili(respawn_left))+"s"
 	if score[0]>=30 or score[1]>=30 or clock<=0:finish()
+
+func _notification(what: int) -> void:
+	if what==NOTIFICATION_APPLICATION_FOCUS_OUT:
+		fire_held=false
+		if is_instance_valid(game):game.touch.reset();game.player.look_pending=Vector2.ZERO

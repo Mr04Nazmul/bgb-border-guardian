@@ -16,9 +16,9 @@ Playable 400 × 400 metre environment with camp, village, bridge, farmland, tree
 
 ## Controls
 
-Mobile: lower-left joystick; drag middle-right to look; E to talk or enter/exit jeep; arrow to jump; RUN held to sprint; C crouches; VIEW changes camera. In jeep, joystick forward/reverse and left/right controls driving; releasing joystick brakes.
+Mobile: lower-left joystick; drag middle-right to look; E to talk or enter/exit jeep; arrow to jump; SPRINT toggles running; CROUCH crouches; PRONE lies down; VIEW changes camera. In jeep, joystick forward/reverse and left/right controls driving; releasing joystick brakes.
 
-Desktop: WASD, Shift, Space, C, E, V, Escape; hold right mouse and drag to look.
+Desktop: WASD, Shift, Space, C, Z, E, V, Escape; hold right mouse and drag to look.
 
 ## Build and tests
 
@@ -96,3 +96,14 @@ Rules and controls:
 This is an original **offline BR prototype**, not online multiplayer or PUBG/Free Fire parity. No plane/parachute sequence, 100-player networking, squads, grenades, dedicated servers, persistent ranking, anti-cheat or monetization is implemented. The fictional Sylhet-inspired map remains 400 m square. Actual iPhone/Android performance and rendering remain unverified.
 
 Tests: tests/battle_royale_check.gd exercises rules/inventory/zone/elimination/winner/reset behavior. tests/battle_simulation.gd runs an accelerated autonomous match to verify bot looting, shooting and eliminations. Existing team combat, rig, movement and web-loader regression tests remain required.
+
+## v0.6.0 — touch, stances and people
+
+- Spread-out circular action controls; independently tracked movement, fire and look fingers. Fire supports drag-to-aim. Joystick has a 12% deadzone; camera input uses exponential smoothing and separate Camera / ADS sliders (0.2–1.5), saved independently from missions.
+- Sprint toggles; C crouches, Z toggles prone. Crawl speed 0.9 m/s; crouch speed 1.7 m/s; ADS limits standing speed. Stance capsules and camera height follow the pose. Prone/crouch cannot jump.
+- Original animated rig now has 12 clips, including armed locomotion, crouch-walk, prone and crawl. Arm grips are baked with a two-bone solver. All soldiers and villagers use the rig; villagers use simple clothing recolors. These remain stylized prototype characters, not photorealistic assets.
+- New original segmented rifle visual (stock, receiver, handguard, sights, magazine and barrel), visually inspired by public BGB patrol photography. No third-party photo is bundled, and this is not a verified replica of service equipment. Visual prop follows the hand with stable forward orientation.
+- Fictional Bangladesh/India-inspired team mode is balanced 10v10 including the player, with team protection and civilian protection. Solo Battle Royale keeps independent survivor identities. Bots face their targets, have basic collision sidestepping and crouch under fire when injured. This is scripted game AI, not real military behavior.
+- Focus loss clears held fire, movement and pending look. Existing solo BR, team combat, mission and pause rules remain.
+
+Validation: Godot headless controls/multitouch, stances, rig, team combat and BR rules; autonomous bot simulation; Web export and loader/WASM checks. iPhone touch feel, real GPU appearance and on-device FPS still need device playtesting. No online multiplayer or actual cross-country military simulation is claimed.
